@@ -1,0 +1,6 @@
+test.bin
+repomix-output.txt
+.venv
+uv.lock
+results
+go.sum

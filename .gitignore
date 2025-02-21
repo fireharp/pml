@@ -1,0 +1,14 @@
+.venv
+.env
+
+impl1
+IMPL1.md
+
+repomix-output.txt
+
+results/
+
+bin/
+__pycache__/
+.pml/
+*.pml.py

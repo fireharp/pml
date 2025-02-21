@@ -1,0 +1,90 @@
+version: "3"
+
+vars:
+  BINARY_NAME: pml-watcher
+  BUILD_DIR: bin
+  EXT_DIR: ../vscode-ext/pml
+
+tasks:
+  clean:
+    desc: Clean build artifacts
+    cmds:
+      - rm -rf {{.BUILD_DIR}}
+      - rm -rf {{.EXT_DIR}}/bin
+
+  test:
+    desc: Run tests
+    cmds:
+      - go test -v ./...
+
+  test:watch:
+    desc: Run tests in watch mode
+    cmds:
+      - go test -v ./... -count=1 -watch
+
+  build:
+    desc: Build for current platform
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - go build -o {{.BUILD_DIR}}/{{.BINARY_NAME}}
+
+  build:all:
+    desc: Build for all platforms
+    deps: [clean]
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - task: build:darwin-amd64
+      - task: build:darwin-arm64
+      - task: build:linux
+      - task: build:windows
+
+  build:darwin-amd64:
+    internal: true
+    cmds:
+      - GOOS=darwin GOARCH=amd64 go build -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-darwin-amd64
+
+  build:darwin-arm64:
+    internal: true
+    cmds:
+      - GOOS=darwin GOARCH=arm64 go build -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-darwin-arm64
+
+  build:linux:
+    internal: true
+    cmds:
+      - GOOS=linux GOARCH=amd64 go build -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-linux
+
+  build:windows:
+    internal: true
+    cmds:
+      - GOOS=windows GOARCH=amd64 go build -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-windows.exe
+
+  copy:binaries:
+    desc: Copy binaries to extension directory
+    deps: [build:all]
+    cmds:
+      - mkdir -p {{.EXT_DIR}}/bin
+      - cp {{.BUILD_DIR}}/* {{.EXT_DIR}}/bin/
+
+  dev:
+    desc: Run the watcher in development mode
+    cmds:
+      - go run .
+
+  install:ext-deps:
+    desc: Install extension development dependencies
+    dir: "{{.EXT_DIR}}"
+    cmds:
+      - npm install
+
+  build:ext:
+    desc: Build the VSCode extension
+    dir: "{{.EXT_DIR}}"
+    deps: [copy:binaries, install:ext-deps]
+    cmds:
+      - npm run compile
+      - npm run package
+
+  default:
+    desc: Show available tasks
+    cmds:
+      - task --list
