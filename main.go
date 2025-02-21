@@ -105,20 +105,28 @@ func main() {
 
 	// Process all PML files
 	log.Printf("Processing all PML files in %s\n", sourcesDir)
-	err = filepath.Walk(sourcesDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
+	if *forceProcess {
+		// Use concurrent processing for all files
+		if err := processor.ProcessFile(context.Background(), ""); err != nil {
+			log.Fatalf("Error processing files: %v\n", err)
 		}
-		if !info.IsDir() && parser.IsPMLFile(path) {
-			fmt.Printf("Processing file: %s\n", path)
-			if err := processor.ProcessFile(context.Background(), path); err != nil {
-				log.Printf("Error processing %s: %v\n", path, err)
+	} else {
+		// Process files sequentially
+		err = filepath.Walk(sourcesDir, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
 			}
+			if !info.IsDir() && parser.IsPMLFile(path) {
+				fmt.Printf("Processing file: %s\n", path)
+				if err := processor.ProcessFile(context.Background(), path); err != nil {
+					log.Printf("Error processing %s: %v\n", path, err)
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			log.Fatalf("Error walking directory: %v", err)
 		}
-		return nil
-	})
-	if err != nil {
-		log.Fatalf("Error walking directory: %v", err)
 	}
 }
 
@@ -138,6 +146,11 @@ func (p *FileProcessor) ProcessFile(ctx context.Context, path string) error {
 		fmt.Printf("=== Force processing file: %s ===\n", path)
 	} else {
 		fmt.Printf("=== Processing file: %s ===\n", path)
+	}
+
+	// Use concurrent processing for multiple files
+	if p.forceProcess {
+		return p.parser.ProcessAllFiles(ctx)
 	}
 	return p.parser.ProcessFile(ctx, path)
 }

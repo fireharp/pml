@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -51,6 +52,21 @@ type Parser struct {
 	cache          map[string]CacheEntry
 	debug          bool
 	forceProcess   bool
+}
+
+// FileBlocks holds the original file path plus the parsed blocks
+type FileBlocks struct {
+	FilePath string
+	Blocks   []Block
+}
+
+// BlockResult holds the final result for a single block
+type BlockResult struct {
+	FilePath string
+	BlockIdx int
+	Block    Block
+	Result   string
+	Err      error
 }
 
 // NewParser creates a new PML parser with specified directories
@@ -821,4 +837,205 @@ func (p *Parser) executePython(ctx context.Context, pyPath string) ([]string, er
 	// Split output into lines and return
 	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
 	return lines, nil
+}
+
+// ProcessAllFiles concurrently processes all .pml files.
+// 1) Parse + generate Python (fast)
+// 2) Execute all blocks in parallel
+// 3) Update final PML files
+func (p *Parser) ProcessAllFiles(ctx context.Context) error {
+	// 1) Find .pml files
+	files, err := p.findPMLFiles()
+	if err != nil {
+		return err
+	}
+
+	// 2) Parse & compile stage
+	// We can do this in parallel as well, but to keep it simple, do it sequentially
+	var fileBlocks []FileBlocks
+	for _, f := range files {
+		fb, err := p.parseAndGeneratePython(f)
+		if err != nil {
+			return fmt.Errorf("parseAndGeneratePython failed for %s: %w", f, err)
+		}
+		fileBlocks = append(fileBlocks, fb)
+	}
+
+	// 3) Process all blocks in parallel
+	// We'll spawn a goroutine for each block across all files.
+	resultsCh := make(chan BlockResult)
+	var wg sync.WaitGroup
+
+	// Create a semaphore to limit concurrent goroutines
+	const maxConcurrent = 10
+	sem := make(chan struct{}, maxConcurrent)
+
+	for _, fb := range fileBlocks {
+		for i, blk := range fb.Blocks {
+			wg.Add(1)
+			go func(filePath string, idx int, block Block) {
+				defer wg.Done()
+				// Acquire semaphore
+				sem <- struct{}{}
+				defer func() { <-sem }()
+
+				// Call processBlock, but it won't rewrite the PML file;
+				// it just returns the result for us to store.
+				result, err := p.processBlock(ctx, block, idx, filePath, filepath.Join(filepath.Dir(filePath), ".pml", "blocks"))
+				resultsCh <- BlockResult{
+					FilePath: filePath,
+					BlockIdx: idx,
+					Block:    block,
+					Result:   result,
+					Err:      err,
+				}
+			}(fb.FilePath, i, blk)
+		}
+	}
+
+	// Close the channel when all goroutines are done
+	go func() {
+		wg.Wait()
+		close(resultsCh)
+	}()
+
+	// Collect results
+	blockResultsMap := make(map[string]map[int]BlockResult)
+	for br := range resultsCh {
+		if br.Err != nil {
+			p.debugf("Error while processing block %d in %s: %v\n", br.BlockIdx, br.FilePath, br.Err)
+			// Continue processing other blocks
+		}
+
+		// Group them by file -> blockIndex
+		if _, ok := blockResultsMap[br.FilePath]; !ok {
+			blockResultsMap[br.FilePath] = make(map[int]BlockResult)
+		}
+		blockResultsMap[br.FilePath][br.BlockIdx] = br
+	}
+
+	// 4) Finalize each .pml file with the results
+	for _, fb := range fileBlocks {
+		// Get all block results for this file
+		results := make([]string, len(fb.Blocks))
+		hasError := false
+		for i := range fb.Blocks {
+			if br, ok := blockResultsMap[fb.FilePath][i]; ok {
+				if br.Err != nil {
+					hasError = true
+					results[i] = fmt.Sprintf("Error: %v", br.Err)
+				} else {
+					results[i] = br.Result
+				}
+			}
+		}
+
+		if hasError {
+			p.debugf("Some blocks failed for %s, but continuing with available results\n", fb.FilePath)
+		}
+
+		// Read the original file content
+		content, err := os.ReadFile(fb.FilePath)
+		if err != nil {
+			return fmt.Errorf("failed to read file %s: %w", fb.FilePath, err)
+		}
+
+		// Update the file with all available results
+		err = p.updatePMLFileWithResults(fb.Blocks, string(content), results, filepath.Join(filepath.Dir(fb.FilePath), ".pml"), filepath.Base(fb.FilePath))
+		if err != nil {
+			return fmt.Errorf("updatePMLFileWithResults failed for %s: %w", fb.FilePath, err)
+		}
+	}
+
+	return nil
+}
+
+// findPMLFiles enumerates all .pml files in p.sourcesDir (recursive or not)
+func (p *Parser) findPMLFiles() ([]string, error) {
+	var files []string
+	err := filepath.Walk(p.sourcesDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() && IsPMLFile(path) {
+			files = append(files, path)
+		}
+		return nil
+	})
+	return files, err
+}
+
+// parseAndGeneratePython parses a single .pml file to produce a list of blocks
+// and writes out the Python code (no block processing/calls).
+func (p *Parser) parseAndGeneratePython(plmPath string) (FileBlocks, error) {
+	content, err := os.ReadFile(plmPath)
+	if err != nil {
+		return FileBlocks{}, err
+	}
+	// Parse blocks
+	blocks, err := p.parseBlocks(string(content))
+	if err != nil {
+		return FileBlocks{}, err
+	}
+	// Create python content
+	newContent := p.replaceBlocksInContent(string(content), blocks)
+
+	// Write the .py file
+	pyPath := plmPath + ".py"
+	if err := os.WriteFile(pyPath, []byte(newContent), 0644); err != nil {
+		return FileBlocks{}, err
+	}
+
+	return FileBlocks{
+		FilePath: plmPath,
+		Blocks:   blocks,
+	}, nil
+}
+
+// updatePMLFileWithResults updates the PML file with results
+func (p *Parser) updatePMLFileWithResults(blocks []Block, content string, results []string, localResultsDir string, sourceFile string) error {
+	lines := strings.Split(content, "\n")
+	var newLines []string
+	var currentBlock *Block
+	blockIndex := 0
+
+	for _, line := range lines {
+		trim := strings.TrimSpace(line)
+
+		switch {
+		case strings.HasPrefix(trim, DirectiveAsk), strings.HasPrefix(trim, DirectiveDo):
+			currentBlock = &Block{Type: trim}
+			newLines = append(newLines, line)
+		case strings.HasPrefix(trim, DirectiveEnd):
+			if currentBlock != nil && blockIndex < len(results) {
+				// Generate unique friendly name for this result
+				resultName := p.generateUniqueResultName(sourceFile, blockIndex, localResultsDir)
+				// Create result file in the local .pml directory
+				resultFile := fmt.Sprintf("%s.pml", resultName)
+				resultPath := filepath.Join(localResultsDir, resultFile)
+
+				if err := p.writeResult(blocks[blockIndex], results[blockIndex], resultPath, localResultsDir, results[blockIndex]); err != nil {
+					// If we can't write the result, just add it directly (fallback)
+					newLines = append(newLines, line)
+					newLines = append(newLines, results[blockIndex])
+				} else {
+					// Get a summary of the result
+					summary, err := p.llm.Summarize(context.Background(), results[blockIndex])
+					if err != nil {
+						summary = "Result available" // Fallback if summarization fails
+					}
+					// Add link to result file with summary in the original format
+					newLines = append(newLines, fmt.Sprintf(":--(r/%s:\"%s\")", resultName, summary))
+				}
+				blockIndex++
+				currentBlock = nil
+			} else {
+				newLines = append(newLines, line)
+			}
+		default:
+			newLines = append(newLines, line)
+		}
+	}
+
+	return os.WriteFile(filepath.Join(localResultsDir, filepath.Base(sourceFile)+".pml"), []byte(strings.Join(newLines, "\n")), 0644)
 }
