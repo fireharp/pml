@@ -35,6 +35,7 @@ func NewParser(llm LLMClient, sourcesDir, compiledDir, resultsDir string) *Parse
 	if os.Getenv("PML_TEST") == "1" {
 		os.RemoveAll(p.rootResultsDir)
 		os.MkdirAll(p.rootResultsDir, 0755)
+		os.MkdirAll(p.rootResultsDir, 0755)
 	}
 	p.loadCache()
 

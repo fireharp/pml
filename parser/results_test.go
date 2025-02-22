@@ -9,6 +9,7 @@ import (
 
 func TestGenerateUniqueResultName(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "pml-results-*")
+	defer os.RemoveAll(tmpDir)
 	if err != nil {
 		t.Fatal(err)
 	}

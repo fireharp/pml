@@ -9,6 +9,7 @@ import (
 
 func TestLoadCacheWhenFileMissing(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "pml-cache-test-*")
+	defer os.RemoveAll(tmpDir)
 	if err != nil {
 		t.Fatal(err)
 	}

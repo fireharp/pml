@@ -176,7 +176,7 @@ func (p *Parser) processBlock(ctx context.Context, block Block, index int, plmPa
 	}
 	entry.Blocks[blockChecksum] = BlockCache{
 		Checksum: blockChecksum,
-		Result:   resultFile,
+		Result:   result,
 		ModTime:  time.Now(),
 	}
 	p.cache[plmPath] = entry
@@ -230,7 +230,7 @@ func (p *Parser) updateContentWithResults(blocks []Block, content string, result
 
 		// Insert a link in the original .pml
 		// Include the full path relative to the source file
-		relPath := filepath.Join(".pml", "results", resultFiles[i])
+		relPath := resultFiles[i]
 		newContent.WriteString(fmt.Sprintf(":--(r/%s)", relPath))
 
 		lastPos = block.End

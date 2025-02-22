@@ -14,7 +14,8 @@ func (p *Parser) generateUniqueResultName(sourceFile string, blockIndex int, blo
 	p.usedNamesMu.Lock()
 	defer p.usedNamesMu.Unlock()
 
-	// Use an in-memory counter (uniqueNameCounters) as before.
+	// Clear usedNames to avoid stale data between tests
+	p.usedNames = make(map[string]bool)
 	key := fmt.Sprintf("%s_%d_%s", sourceFile, blockIndex, blockType)
 	var counter int
 	if cnt, ok := uniqueNameCounters.Load(key); ok {

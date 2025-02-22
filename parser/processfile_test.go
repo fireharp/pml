@@ -12,6 +12,7 @@ import (
 // TestProcessFileUnknownBlock tests that an unknown block directive returns an error.
 func TestProcessFileUnknownBlock(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "pml-unknownblock-*")
+	defer os.RemoveAll(tmpDir)
 	if err != nil {
 		t.Fatal(err)
 	}

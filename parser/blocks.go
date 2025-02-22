@@ -43,6 +43,9 @@ func (p *Parser) parseBlocks(content string) ([]Block, error) {
 
 		// Skip empty lines if we're not in a block
 		if trimmedLine == "" {
+			if currentBlock != nil {
+				currentBlock.Content = append(currentBlock.Content, line)
+			}
 			currentPos += lineLen
 			continue
 		}
