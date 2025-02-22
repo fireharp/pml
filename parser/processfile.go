@@ -133,10 +133,6 @@ func (p *Parser) ProcessFile(ctx context.Context, plmPath string) error {
 	p.cache[plmPath] = entry
 	p.cacheMu.Unlock()
 
-	if err := p.saveCache(); err != nil {
-		p.debugf("Warning: failed to save cache: %v\n", err)
-	}
-
 	return nil
 }
 

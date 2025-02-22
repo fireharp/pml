@@ -22,10 +22,15 @@ func IsEphemeral(path string) (bool, error) {
 			if err := json.Unmarshal([]byte(jsonStr), &metadata); err != nil {
 				return false, err
 			}
-			if isEphemeral, ok := metadata["is_ephemeral"].(bool); ok {
-				return isEphemeral, nil
+			val, ok := metadata["is_ephemeral"]
+			if !ok {
+				return false, nil
 			}
-			break
+			isEph, isBool := val.(bool)
+			if !isBool {
+				return false, fmt.Errorf("is_ephemeral must be bool, but got: %v", val)
+			}
+			return isEph, nil
 		}
 	}
 	return false, nil
