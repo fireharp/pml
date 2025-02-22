@@ -1,6 +1,6 @@
-test.bin
-repomix-output.txt
 .venv
+repomix-output.txt
+*.bin
 uv.lock
 results
 go.sum

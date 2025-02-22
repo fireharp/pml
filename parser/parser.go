@@ -426,6 +426,7 @@ func (p *Parser) replaceBlocksInContent(content string, blocks []Block) string {
 		case strings.HasPrefix(trim, DirectiveEnd), strings.HasPrefix(trim, ":--(r/"):
 			if currentBlock != nil {
 				newLines = append(newLines, "''')")
+				newLines = append(newLines, "# :--")
 				// If we have a result name for this block, use it in the comment
 				if blockIndex < len(resultNames) && resultNames[blockIndex] != "" {
 					newLines = append(newLines, fmt.Sprintf("# :--(r/%s)", resultNames[blockIndex]))
@@ -437,6 +438,7 @@ func (p *Parser) replaceBlocksInContent(content string, blocks []Block) string {
 			// Any other directive starts a new block
 			if currentBlock != nil {
 				newLines = append(newLines, "''')")
+				newLines = append(newLines, "# :--")
 				blockIndex++
 				currentBlock = nil
 			}
@@ -453,6 +455,7 @@ func (p *Parser) replaceBlocksInContent(content string, blocks []Block) string {
 	// Close any open block at the end of file
 	if currentBlock != nil {
 		newLines = append(newLines, "''')")
+		newLines = append(newLines, "# :--")
 		blockIndex++
 	}
 
@@ -511,7 +514,7 @@ func (p *Parser) processBlock(ctx context.Context, block Block, index int, plmPa
 	}
 
 	// Check if we're in test mode
-	testDirPath := filepath.Join(p.compiledDir, "test_directives.py")
+	testDirPath := filepath.Join(filepath.Dir(plmPath), "test_directives.py")
 	if _, err := os.Stat(testDirPath); err == nil {
 		// In test mode, use LLM directly
 		content := strings.Join(block.Content, "\n")
@@ -519,6 +522,20 @@ func (p *Parser) processBlock(ctx context.Context, block Block, index int, plmPa
 		if err != nil {
 			return "", fmt.Errorf("failed to process block with LLM: %w", err)
 		}
+
+		// Update cache with block result
+		if entry, ok := p.cache[plmPath]; ok {
+			if entry.Blocks == nil {
+				entry.Blocks = make(map[string]BlockCache)
+			}
+			entry.Blocks[blockKey] = BlockCache{
+				Checksum: blockChecksum,
+				Result:   result,
+				ModTime:  time.Now(),
+			}
+			p.cache[plmPath] = entry
+		}
+
 		return result, nil
 	}
 
@@ -614,13 +631,8 @@ func (p *Parser) updateContentWithResults(blocks []Block, content string, result
 					newLines = append(newLines, line)
 					newLines = append(newLines, results[blockIndex])
 				} else {
-					// Get a summary of the result
-					summary, err := p.llm.Summarize(context.Background(), results[blockIndex])
-					if err != nil {
-						summary = "Result available" // Fallback if summarization fails
-					}
 					// Add link to result file with summary in the original format
-					newLines = append(newLines, fmt.Sprintf(":--(r/%s:\"%s\")", resultName, summary))
+					newLines = append(newLines, fmt.Sprintf(":--(r/%s:\"%s\")", resultName, results[blockIndex]))
 				}
 				blockIndex++
 				currentBlock = nil
@@ -657,12 +669,6 @@ func (p *Parser) writeResult(block Block, result string, resultFile string, loca
 	if err := os.WriteFile(logPath, []byte(detailedLog), 0644); err != nil {
 		p.debugf("Warning: failed to write detailed log: %v\n", err)
 		// Continue anyway as this is not critical
-	}
-
-	// Get a summary of the result
-	summary, err := p.llm.Summarize(context.Background(), result)
-	if err != nil {
-		summary = "Result available" // Fallback if summarization fails
 	}
 
 	// Format the result properly
@@ -941,9 +947,9 @@ func (p *Parser) ProcessAllFiles(ctx context.Context) error {
 		}
 
 		// Update the file with all available results
-		err = p.updatePMLFileWithResults(fb.Blocks, string(content), results, filepath.Join(filepath.Dir(fb.FilePath), ".pml"), filepath.Base(fb.FilePath))
-		if err != nil {
-			return fmt.Errorf("updatePMLFileWithResults failed for %s: %w", fb.FilePath, err)
+		newContent := p.updatePMLFileWithResults(fb.Blocks, string(content), results, filepath.Join(filepath.Dir(fb.FilePath), ".pml"), filepath.Base(fb.FilePath))
+		if err := os.WriteFile(fb.FilePath, []byte(newContent), 0644); err != nil {
+			return fmt.Errorf("failed to write updated PML file %s: %v", fb.FilePath, err)
 		}
 	}
 
@@ -993,7 +999,7 @@ func (p *Parser) parseAndGeneratePython(plmPath string) (FileBlocks, error) {
 }
 
 // updatePMLFileWithResults updates the PML file with results
-func (p *Parser) updatePMLFileWithResults(blocks []Block, content string, results []string, localResultsDir string, sourceFile string) error {
+func (p *Parser) updatePMLFileWithResults(blocks []Block, content string, results []string, localResultsDir string, sourceFile string) string {
 	lines := strings.Split(content, "\n")
 	var newLines []string
 	var currentBlock *Block
@@ -1019,13 +1025,8 @@ func (p *Parser) updatePMLFileWithResults(blocks []Block, content string, result
 					newLines = append(newLines, line)
 					newLines = append(newLines, results[blockIndex])
 				} else {
-					// Get a summary of the result
-					summary, err := p.llm.Summarize(context.Background(), results[blockIndex])
-					if err != nil {
-						summary = "Result available" // Fallback if summarization fails
-					}
 					// Add link to result file with summary in the original format
-					newLines = append(newLines, fmt.Sprintf(":--(r/%s:\"%s\")", resultName, summary))
+					newLines = append(newLines, fmt.Sprintf(":--(r/%s:\"%s\")", resultName, results[blockIndex]))
 				}
 				blockIndex++
 				currentBlock = nil
@@ -1037,5 +1038,5 @@ func (p *Parser) updatePMLFileWithResults(blocks []Block, content string, result
 		}
 	}
 
-	return os.WriteFile(filepath.Join(localResultsDir, filepath.Base(sourceFile)+".pml"), []byte(strings.Join(newLines, "\n")), 0644)
+	return strings.Join(newLines, "\n")
 }
