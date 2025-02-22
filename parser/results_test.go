@@ -37,6 +37,11 @@ func TestGenerateUniqueResultName(t *testing.T) {
 }
 
 func TestFormatResult(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "pml-results-test-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
 	parser := NewParser(&mockLLM{response: "Test response"}, tmpDir, tmpDir, tmpDir)
 
 	testCases := []struct {
@@ -123,7 +128,7 @@ func TestWriteResult(t *testing.T) {
 }
 
 func TestResultLinkGeneration(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "pml-results-*")
+	tmpDir, err := os.MkdirTemp("", "pml-results-test-*")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -176,7 +181,7 @@ What is 2+2?
 }
 
 func TestResultFileNaming(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "pml-results-*")
+	tmpDir, err := os.MkdirTemp("", "pml-results-test-*")
 	if err != nil {
 		t.Fatal(err)
 	}
