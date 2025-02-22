@@ -10,6 +10,13 @@ import (
 
 // IsEphemeral checks if a file is an ephemeral result
 func IsEphemeral(path string) (bool, error) {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return false, err
+	}
+	if fi.IsDir() {
+		return false, nil
+	}
 	content, err := os.ReadFile(path)
 	if err != nil {
 		return false, err

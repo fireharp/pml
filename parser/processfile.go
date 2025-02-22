@@ -18,6 +18,11 @@ func (p *Parser) ProcessFile(ctx context.Context, plmPath string) error {
     if err := ctx.Err(); err != nil {
         return err
     }
+    if lockInterface, _ := p.fileLocks.LoadOrStore(plmPath, &sync.Mutex{}); lockInterface != nil {
+        fileLock := lockInterface.(*sync.Mutex)
+        fileLock.Lock()
+        defer fileLock.Unlock()
+    }
 	// Skip .pml/ directories and check if the path is a directory
 	if strings.Contains(plmPath, "/.pml/") || strings.Contains(plmPath, "\\.pml\\") {
 		return nil
@@ -192,11 +197,6 @@ func (p *Parser) processBlock(ctx context.Context, block Block, index int, plmPa
 	p.cache[plmPath] = entry
 	p.cacheMu.Unlock()
 
-	// Save cache to disk
-	if err := p.saveCache(); err != nil {
-		p.debugf("Warning: failed to save cache: %v\n", err)
-	}
-
 	return result, nil
 }
 
@@ -239,7 +239,8 @@ func (p *Parser) writeResult(block Block, result string, resultFile string, loca
 	return nil
 }
 
-// updateContentWithResults updates the original content with result links
+// updateContentWithResults updates the original content by generating result files
+// for each block and embedding a result link in place of the block.
 func (p *Parser) updateContentWithResults(blocks []Block, content string, results []string, localResultsDir string, sourceFile string) string {
 	if len(blocks) == 0 {
 		return content
@@ -252,10 +253,16 @@ func (p *Parser) updateContentWithResults(blocks []Block, content string, result
 		// Write content before this block
 		newContent.WriteString(content[lastPos:block.Start])
 
-		// Write the result for this block
-		if i < len(results) {
-			newContent.WriteString(results[i])
+		// Generate unique result file name and write the result file.
+		resultName := p.generateUniqueResultName(sourceFile, i, localResultsDir)
+		resultFile := fmt.Sprintf("%s.pml", resultName)
+		summary := fmt.Sprintf("Result for block %d from %s", i, sourceFile)
+		if err := p.writeResult(block, results[i], resultFile, localResultsDir, summary); err != nil {
+			p.debugf("Failed to write result file: %v\n", err)
 		}
+
+		// Embed result link in the content (format can be adjusted as needed)
+		newContent.WriteString(fmt.Sprintf(":--(r/%s:%q)", resultName, resultFile))
 
 		lastPos = block.End
 	}

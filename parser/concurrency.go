@@ -49,6 +49,9 @@ func (p *Parser) ProcessAllFiles(ctx context.Context) error {
 			errors = append(errors, err)
 		}
 	}
+	if ctx.Err() != nil {
+	    return ctx.Err()
+	}
 
 	if len(errors) > 0 {
 		// Format all errors into a single error
