@@ -50,15 +50,12 @@ func (p *Parser) ProcessFile(ctx context.Context, plmPath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to read plm file: %w", err)
 	}
-	// If the file already contains a result link, assume it’s been processed.
-	if strings.Contains(string(content), ":--(r/") {
-		return nil
-	}
+	// (Removed) Do not skip processing even if a result link is present.
 
-	// Prepare .pml directory
-	pmlDir := filepath.Join(filepath.Dir(plmPath), ".pml")
-	if err = os.MkdirAll(pmlDir, 0755); err != nil {
-		return fmt.Errorf("failed to create .pml dir: %w", err)
+	// Use the parser’s designated results directory.
+	resultsDir := p.rootResultsDir
+	if err = os.MkdirAll(resultsDir, 0755); err != nil {
+		return fmt.Errorf("failed to create results directory: %w", err)
 	}
 
 	// Make sure rootResultsDir exists
@@ -132,7 +129,7 @@ func (p *Parser) ProcessFile(ctx context.Context, plmPath string) error {
 	}
 
 	// embed results
-	updatedContent := p.updateContentWithResults(blocks, string(content), results, pmlDir, filepath.Base(plmPath))
+	updatedContent := p.updateContentWithResults(blocks, string(content), results, resultsDir, filepath.Base(plmPath))
 	time.Sleep(20 * time.Millisecond)
 	if err := os.WriteFile(plmPath, []byte(updatedContent), 0644); err != nil {
 		return fmt.Errorf("failed to write updated PML file: %w", err)

@@ -36,12 +36,12 @@ func TestProcessAllFilesWithMixedContent(t *testing.T) {
 	var mu sync.Mutex
 	mockLLM := &mockLLM{
 		response: "Test response",
+		Delay:    50 * time.Millisecond, // short delay for concurrency test
 		callback: func() {
 			mu.Lock()
 			callCount++
 			mu.Unlock()
-			// Simulate a shorter LLM delay for concurrent processing
-			time.Sleep(50 * time.Millisecond)
+			// Optionally track calls here.
 		},
 	}
 
@@ -144,11 +144,12 @@ Question %c
 	var mu sync.Mutex
 	mockLLM := &mockLLM{
 		response: "Test response",
+		Delay:    500 * time.Millisecond, // longer delay for cancellation test
 		callback: func() {
 			mu.Lock()
 			processedCount++
 			mu.Unlock()
-			time.Sleep(100 * time.Millisecond)
+			// Optionally track calls here.
 		},
 	}
 

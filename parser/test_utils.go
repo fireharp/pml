@@ -9,14 +9,19 @@ import (
 type mockLLM struct {
 	response string
 	err      error
-	callback func() // Add callback to track when Ask is called
+	callback func()
+	Delay    time.Duration // configurable delay for Ask
 }
 
 func (m *mockLLM) Ask(ctx context.Context, prompt string) (string, error) {
 	if m.callback != nil {
 		m.callback()
 	}
-	totalDelay := 300 * time.Millisecond
+	// Use m.Delay if provided; otherwise, default to 300ms.
+	totalDelay := m.Delay
+	if totalDelay == 0 {
+		totalDelay = 300 * time.Millisecond
+	}
 	interval := 10 * time.Millisecond
 	elapsed := time.Duration(0)
 	for elapsed < totalDelay {
