@@ -11,8 +11,6 @@ import (
 type LLMClient interface {
 	Ask(ctx context.Context, prompt string) (string, error)
 	Summarize(ctx context.Context, text string) (string, error)
-	usedNamesMu    sync.Mutex
-	usedNames      map[string]bool
 }
 
 // Parser handles PML file parsing and processing
