@@ -18,11 +18,12 @@ func (p *Parser) ProcessFile(ctx context.Context, plmPath string) error {
     if err := ctx.Err(); err != nil {
         return err
     }
-    if lockInterface, _ := p.fileLocks.LoadOrStore(plmPath, &sync.Mutex{}); lockInterface != nil {
-        fileLock := lockInterface.(*sync.Mutex)
-        fileLock.Lock()
-        defer fileLock.Unlock()
-    }
+
+    // Get or create a file lock
+    lockInterface, _ := p.fileLocks.LoadOrStore(plmPath, &sync.Mutex{})
+    fileLock := lockInterface.(*sync.Mutex)
+    fileLock.Lock()
+    defer fileLock.Unlock()
 	// Skip .pml/ directories and check if the path is a directory
 	if strings.Contains(plmPath, "/.pml/") || strings.Contains(plmPath, "\\.pml\\") {
 		return nil
@@ -119,6 +120,11 @@ func (p *Parser) ProcessFile(ctx context.Context, plmPath string) error {
 
 	if firstErr != nil {
 		return firstErr
+	}
+
+	// Create results directory if it doesn't exist
+	if err := os.MkdirAll(pmlDir, 0755); err != nil {
+		return fmt.Errorf("failed to create results directory: %w", err)
 	}
 
 	// embed results
@@ -238,7 +244,10 @@ func (p *Parser) writeResult(block Block, result string, resultFile string, loca
 	defer p.resultFiles.Delete(resultPath)
 
 	// Format the result content with proper escaping
-	content := fmt.Sprintf("// %s\n\n%s\n", summary, result)
+	content := fmt.Sprintf("// %s\n\nQuestion:\n%s\n\nAnswer:\n%s\n", 
+		summary, 
+		strings.Join(block.Content, "\n"),
+		result)
 
 	// Create parent directory if it doesn't exist
 	if err := os.MkdirAll(filepath.Dir(resultPath), 0755); err != nil {

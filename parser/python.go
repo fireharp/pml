@@ -58,6 +58,9 @@ func (p *Parser) executePython(ctx context.Context, pyPath string) ([]string, er
 	// Capture both stdout and stderr
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return nil, context.DeadlineExceeded
+		}
 		return nil, fmt.Errorf("failed to execute Python: %w\nOutput: %s", err, string(output))
 	}
 

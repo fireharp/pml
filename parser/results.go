@@ -24,7 +24,7 @@ func (p *Parser) generateUniqueResultName(sourceFile string, blockIndex int, loc
 
 		// Add prefix based on block type (assuming :ask for now since we don't have block type)
 		prefix := "ask_"
-		resultName = fmt.Sprintf("%s%s_%s", prefix, adjectives[adjIndex], nouns[nounIndex])
+		resultName = fmt.Sprintf("%s%s_%s_%d", prefix, adjectives[adjIndex], nouns[nounIndex], counter)
 
 		// Check if this name is already taken
 		resultFile := fmt.Sprintf("%s.pml", resultName)
