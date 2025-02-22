@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 )
 
 // loadCache loads the cache from disk
@@ -16,23 +17,38 @@ func (p *Parser) loadCache() {
 	data, err := os.ReadFile(p.cacheFile)
 	if err != nil {
 		p.debugf("No cache file found or error reading cache: %v\n", err)
+		p.cacheMu.Lock()
 		p.cache = make(map[string]CacheEntry)
+		p.cacheMu.Unlock()
 		return
 	}
 
-	if err := json.Unmarshal(data, &p.cache); err != nil {
+	var tempCache map[string]CacheEntry
+	if err := json.Unmarshal(data, &tempCache); err != nil {
 		p.debugf("Error unmarshaling cache: %v\n", err)
 		// Start with empty cache if corrupted
+		p.cacheMu.Lock()
 		p.cache = make(map[string]CacheEntry)
+		p.cacheMu.Unlock()
+		return
 	}
 
 	// Ensure all entries have initialized maps
-	for path, entry := range p.cache {
+	p.cacheMu.Lock()
+	p.cache = make(map[string]CacheEntry)
+	for path, entry := range tempCache {
 		if entry.Blocks == nil {
 			entry.Blocks = make(map[string]BlockCache)
-			p.cache[path] = entry
 		}
+		// Clean up expired entries (older than 24 hours)
+		for blockID, blockCache := range entry.Blocks {
+			if time.Since(blockCache.ModTime) > 24*time.Hour {
+				delete(entry.Blocks, blockID)
+			}
+		}
+		p.cache[path] = entry
 	}
+	p.cacheMu.Unlock()
 }
 
 // saveCache saves the cache to disk
@@ -42,8 +58,16 @@ func (p *Parser) saveCache() error {
 		return fmt.Errorf("error creating cache directory: %w", err)
 	}
 
+	// Get a copy of the cache under read lock
+	p.cacheMu.RLock()
+	cacheCopy := make(map[string]CacheEntry)
+	for k, v := range p.cache {
+		cacheCopy[k] = v
+	}
+	p.cacheMu.RUnlock()
+
 	// Marshal cache with indentation for readability
-	data, err := json.MarshalIndent(p.cache, "", "  ")
+	data, err := json.MarshalIndent(cacheCopy, "", "  ")
 	if err != nil {
 		return fmt.Errorf("error marshaling cache: %w", err)
 	}

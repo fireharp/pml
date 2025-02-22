@@ -34,39 +34,48 @@ func (p *Parser) parseBlocks(content string) ([]Block, error) {
 	var blocks []Block
 	lines := strings.Split(content, "\n")
 	var currentBlock *Block
+	var blockStartPos int
+	var currentPos int
 
-	for _, line := range lines {
+	for i, line := range lines {
+		lineLen := len(line) + 1 // +1 for newline
 		trimmedLine := strings.TrimSpace(line)
 
 		// Treat any line starting with ":--" as DirectiveEnd
 		if strings.HasPrefix(trimmedLine, DirectiveEnd) {
-			if currentBlock != nil {
-				blocks = append(blocks, *currentBlock)
-				currentBlock = nil
+			if currentBlock == nil {
+				// Found end marker without a block
+				return nil, fmt.Errorf("found end marker without a block at line %d", i+1)
 			}
+			currentBlock.End = currentPos + len(line)
+			blocks = append(blocks, *currentBlock)
+			currentBlock = nil
+			currentPos += lineLen
 			continue
 		}
 
 		switch trimmedLine {
 		case DirectiveAsk, DirectiveDo:
 			if currentBlock != nil {
-				// Found a new block without closing the previous one
-				blocks = append(blocks, *currentBlock)
+				// Found new block without ending previous one
+				return nil, fmt.Errorf("found new block without ending previous one at line %d", i+1)
 			}
 			currentBlock = &Block{
-				Type:    trimmedLine,
-				Content: []string{},
+				Type:  trimmedLine,
+				Start: currentPos,
 			}
+			blockStartPos = currentPos
 		default:
 			if currentBlock != nil {
 				currentBlock.Content = append(currentBlock.Content, line)
 			}
 		}
+		currentPos += lineLen
 	}
 
 	if currentBlock != nil {
-		// Handle unclosed block at EOF
-		blocks = append(blocks, *currentBlock)
+		// File ended without closing block
+		return nil, fmt.Errorf("file ended without closing block starting at position %d", blockStartPos)
 	}
 
 	return blocks, nil

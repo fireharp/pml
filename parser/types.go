@@ -21,6 +21,8 @@ type Parser struct {
 	rootResultsDir string // For larger logs and detailed execution results
 	cacheFile      string // Path to the cache file
 	cache          map[string]CacheEntry
+	cacheMu        sync.RWMutex // Protects cache map
+	saveMu         sync.Mutex   // Protects cache file operations
 	debug          bool
 	forceProcess   bool
 	resultFiles    sync.Map // Map to track result files being written
@@ -32,6 +34,8 @@ type Block struct {
 	Content     []string
 	Response    string
 	IsEphemeral bool // Whether this block was generated during runtime
+	Start       int  // Start position in the original content
+	End         int  // End position in the original content
 }
 
 // FileBlocks holds the original file path plus the parsed blocks
