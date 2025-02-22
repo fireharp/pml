@@ -196,14 +196,15 @@ What is 3+3?
 	}
 
 	// Verify both blocks were processed
-	files, err := os.ReadDir(tmpDir)
+	resultsDir := filepath.Join(tmpDir, ".pml", "results")
+	files, err := os.ReadDir(resultsDir)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	resultCount := 0
 	for _, f := range files {
-		if f.Name() != "whitespace.pml" && strings.HasSuffix(f.Name(), ".pml") {
+		if strings.HasSuffix(f.Name(), ".pml") {
 			resultCount++
 		}
 	}
@@ -242,22 +243,21 @@ What is π?
 	}
 
 	// Read result files and verify UTF-8 content is preserved
-	files, err := os.ReadDir(tmpDir)
+	resultsDir := filepath.Join(tmpDir, ".pml", "results")
+	files, err := os.ReadDir(resultsDir)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	foundUTF8 := false
 	for _, f := range files {
-		if f.IsDir() {
-			continue
-		}
-		if f.Name() != "utf8.pml" && strings.HasSuffix(f.Name(), ".pml") {
-			content, err := os.ReadFile(filepath.Join(tmpDir, f.Name()))
+		if strings.HasSuffix(f.Name(), ".pml") {
+			content, err := os.ReadFile(filepath.Join(resultsDir, f.Name()))
 			if err != nil {
 				t.Fatal(err)
 			}
-			if strings.Contains(string(content), "π") || strings.Contains(string(content), "こんにちは世界") {
+			contentStr := string(content)
+			if strings.Contains(contentStr, "π") || strings.Contains(contentStr, "こんにちは世界") {
 				foundUTF8 = true
 				break
 			}
@@ -300,14 +300,15 @@ Question %d
 	}
 
 	// Verify all blocks were processed
-	files, err := os.ReadDir(tmpDir)
+	resultsDir := filepath.Join(tmpDir, ".pml", "results")
+	files, err := os.ReadDir(resultsDir)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	resultCount := 0
 	for _, f := range files {
-		if f.Name() != "large.pml" && strings.HasSuffix(f.Name(), ".pml") {
+		if strings.HasSuffix(f.Name(), ".pml") {
 			resultCount++
 		}
 	}

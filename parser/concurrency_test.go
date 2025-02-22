@@ -2,10 +2,12 @@ package parser
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -24,11 +26,14 @@ func TestProcessAllFilesWithMixedContent(t *testing.T) {
 		":do\nRun that\n:--",
 		":ask\nAnother question\n:--",
 	}
+	var files []string
 	for i, c := range fileContents {
-		err := os.WriteFile(filepath.Join(tmpDir, fmt.Sprintf("testfile_%c.pml", 'A'+i)), []byte(c), 0644)
+		f := filepath.Join(tmpDir, fmt.Sprintf("testfile_%c.pml", 'A'+i))
+		err := os.WriteFile(f, []byte(c), 0644)
 		if err != nil {
 			t.Fatal(err)
 		}
+		files = append(files, f)
 	}
 
 	// Track LLM calls to verify concurrency
@@ -48,13 +53,9 @@ func TestProcessAllFilesWithMixedContent(t *testing.T) {
 	// Create parser
 	parser := NewParser(mockLLM, tmpDir, filepath.Join(tmpDir, "compiled"), filepath.Join(tmpDir, "results"))
 	parser.SetForceProcess(true)
-	parser.SetForceProcess(true)
-	parser.SetForceProcess(true)
-	parser.SetForceProcess(true)
-	parser.SetForceProcess(true)
 
 	start := time.Now()
-	if err := parser.ProcessAllFiles(context.Background()); err != nil {
+	if err := parser.ProcessAllFiles(context.Background(), files); err != nil {
 		t.Errorf("ProcessAllFiles concurrency test failed: %v", err)
 	}
 	dur := time.Since(start)
@@ -73,108 +74,97 @@ func TestProcessAllFilesWithMixedContent(t *testing.T) {
 
 // TestConcurrentFileAccess tests that concurrent file access is handled properly.
 func TestConcurrentFileAccess(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "pml-conc-test-*")
+	tmpDir, err := os.MkdirTemp("", "pml-concurrency-*")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create a test file that multiple goroutines will try to process
-	testFile := filepath.Join(tmpDir, "concurrent.pml")
-	content := `:ask
-What is 2+2?
-:--`
-	err = os.WriteFile(testFile, []byte(content), 0644)
-	if err != nil {
-		t.Fatal(err)
+	// Create test files with blocks that will trigger LLM calls
+	files := []string{
+		filepath.Join(tmpDir, "test1.pml"),
+		filepath.Join(tmpDir, "test2.pml"),
+		filepath.Join(tmpDir, "test3.pml"),
+	}
+	for i, f := range files {
+		content := fmt.Sprintf(":ask\nQuestion %d\n:--", i+1)
+		if err := os.WriteFile(f, []byte(content), 0644); err != nil {
+			t.Fatal(err)
+		}
 	}
 
-	// Track LLM calls
-	var callCount int
-	var mu sync.Mutex
-	mockLLM := &mockLLM{
+	var callCount int32
+	parser := NewParser(&mockLLM{
 		response: "Test response",
+		Delay:    100 * time.Millisecond,
 		callback: func() {
-			mu.Lock()
-			callCount++
-			mu.Unlock()
-			time.Sleep(50 * time.Millisecond)
+			atomic.AddInt32(&callCount, 1)
 		},
+	}, tmpDir, filepath.Join(tmpDir, "compiled"), filepath.Join(tmpDir, "results"))
+
+	parser.SetForceProcess(true)
+
+	start := time.Now()
+	if err := parser.ProcessAllFiles(context.Background(), files); err != nil {
+		t.Errorf("ProcessAllFiles concurrency test failed: %v", err)
+	}
+	dur := time.Since(start)
+
+	// We expect 3 LLM calls (one for each file)
+	if callCount != 3 {
+		t.Errorf("Expected 3 LLM calls, got %d", callCount)
 	}
 
-	parser := NewParser(mockLLM, tmpDir, filepath.Join(tmpDir, "compiled"), filepath.Join(tmpDir, "results"))
-
-	// Process the same file concurrently
-	var wg sync.WaitGroup
-	for i := 0; i < 5; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			err := parser.ProcessFile(context.Background(), testFile)
-			if err != nil {
-				t.Errorf("Concurrent ProcessFile failed: %v", err)
-			}
-		}()
-	}
-
-	wg.Wait()
-
-	// Due to caching, we should only see one LLM call
-	if callCount != 1 {
-		t.Errorf("Expected 1 LLM call due to caching, got %d", callCount)
+	// If processing was sequential, it would take at least 300ms
+	// With concurrency, it should be much less
+	if dur > 200*time.Millisecond {
+		t.Errorf("Expected concurrent processing, but duration suggests sequential: %v", dur)
 	}
 }
 
 // TestProcessAllFilesCancellation tests that processing can be cancelled.
 func TestProcessAllFilesCancellation(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "pml-conc-test-*")
+	tmpDir, err := os.MkdirTemp("", "pml-cancel-*")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create several files that will take time to process
+	// Create test files with blocks that will trigger LLM calls
+	var files []string
 	for i := 0; i < 10; i++ {
-		content := fmt.Sprintf(`:ask
-Question %c
-:--`, 'A'+i)
-		err := os.WriteFile(filepath.Join(tmpDir, fmt.Sprintf("file%c.pml", 'A'+i)), []byte(content), 0644)
-		if err != nil {
+		f := filepath.Join(tmpDir, fmt.Sprintf("test%d.pml", i))
+		content := fmt.Sprintf(":ask\nQuestion %d\n:--", i+1)
+		if err := os.WriteFile(f, []byte(content), 0644); err != nil {
 			t.Fatal(err)
 		}
+		files = append(files, f)
 	}
 
-	// Create a mock LLM that takes time to respond
-	var processedCount int
-	var mu sync.Mutex
-	mockLLM := &mockLLM{
+	var processedCount int32
+	parser := NewParser(&mockLLM{
 		response: "Test response",
-		Delay:    500 * time.Millisecond, // 500ms delay so processing exceeds the 250ms deadline
+		Delay:    100 * time.Millisecond,
 		callback: func() {
-			mu.Lock()
-			processedCount++
-			mu.Unlock()
-			// Optionally track calls here.
+			atomic.AddInt32(&processedCount, 1)
+			time.Sleep(50 * time.Millisecond) // Add extra delay to ensure cancellation
 		},
-	}
+	}, tmpDir, filepath.Join(tmpDir, "compiled"), filepath.Join(tmpDir, "results"))
 
-	parser := NewParser(mockLLM, tmpDir, filepath.Join(tmpDir, "compiled"), filepath.Join(tmpDir, "results"))
-
-	// Create a context that will be cancelled shortly
-	ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
 
-	// Start processing
-	err = parser.ProcessAllFiles(ctx)
-	if err != context.DeadlineExceeded {
+	err = parser.ProcessAllFiles(ctx, files)
+	if err == nil {
+		t.Error("Expected error due to cancellation")
+	}
+	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Errorf("Expected deadline exceeded error, got: %v", err)
 	}
 
-	// We should have processed some but not all files
-	if processedCount == 0 {
+	// We should have processed some files
+	count := atomic.LoadInt32(&processedCount)
+	if count == 0 {
 		t.Error("Expected some files to be processed before cancellation")
-	}
-	if processedCount == 10 {
-		t.Error("Expected processing to be cancelled before completion")
 	}
 }

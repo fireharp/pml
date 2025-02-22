@@ -41,7 +41,7 @@ func (p *Parser) parseBlocks(content string) ([]Block, error) {
 		lineLen := len(line) + 1 // +1 for newline
 		trimmedLine := strings.TrimSpace(line)
 
-		// Skip empty lines if we're not in a block
+		// Handle empty lines
 		if trimmedLine == "" {
 			if currentBlock != nil {
 				currentBlock.Content = append(currentBlock.Content, line)
@@ -91,6 +91,13 @@ func (p *Parser) parseBlocks(content string) ([]Block, error) {
 	if currentBlock != nil {
 		// File ended without closing block
 		return nil, fmt.Errorf("file ended without closing block starting at position %d", blockStartPos)
+	}
+
+	// Trim trailing empty lines from each block's content
+	for i := range blocks {
+		for len(blocks[i].Content) > 0 && strings.TrimSpace(blocks[i].Content[len(blocks[i].Content)-1]) == "" {
+			blocks[i].Content = blocks[i].Content[:len(blocks[i].Content)-1]
+		}
 	}
 
 	return blocks, nil

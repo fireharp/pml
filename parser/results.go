@@ -14,8 +14,11 @@ func (p *Parser) generateUniqueResultName(sourceFile string, blockIndex int, blo
 	p.usedNamesMu.Lock()
 	defer p.usedNamesMu.Unlock()
 
-	// Clear usedNames to avoid stale data between tests
-	p.usedNames = make(map[string]bool)
+	// Initialize usedNames if nil
+	if p.usedNames == nil {
+		p.usedNames = make(map[string]bool)
+	}
+
 	key := fmt.Sprintf("%s_%d_%s", sourceFile, blockIndex, blockType)
 	var counter int
 	if cnt, ok := uniqueNameCounters.Load(key); ok {
@@ -44,6 +47,7 @@ func (p *Parser) generateUniqueResultName(sourceFile string, blockIndex int, blo
 			prefix = "result_"
 		}
 
+		// Ensure consistent naming by using a deterministic pattern
 		resultName = fmt.Sprintf("%s%s_%s_block%d_%d.pml", prefix, adjectives[adjIndex], nouns[nounIndex], blockIndex, counter)
 
 		// Check both in-memory and on disk for uniqueness

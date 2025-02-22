@@ -48,20 +48,40 @@ func IsEphemeral(path string) (bool, error) {
 func (p *Parser) ListEphemeralBlocks() ([]string, error) {
 	var ephemeralBlocks []string
 
-	files, err := os.ReadDir(p.rootResultsDir)
+	// Check both root results directory and local results directories
+	dirs := []string{p.rootResultsDir}
+
+	// Find all .pml/results directories
+	err := filepath.Walk(p.sourcesDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() && filepath.Base(path) == "results" && strings.Contains(path, ".pml") {
+			dirs = append(dirs, path)
+		}
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	for _, file := range files {
-		if !file.IsDir() && strings.HasSuffix(file.Name(), ".pml") {
-			path := filepath.Join(p.rootResultsDir, file.Name())
-			isEphemeral, err := IsEphemeral(path)
-			if err != nil {
-				continue // Skip files with errors
-			}
-			if isEphemeral {
-				ephemeralBlocks = append(ephemeralBlocks, path)
+	// Check each directory for ephemeral blocks
+	for _, dir := range dirs {
+		files, err := os.ReadDir(dir)
+		if err != nil {
+			continue // Skip directories with errors
+		}
+
+		for _, file := range files {
+			if !file.IsDir() && strings.HasSuffix(file.Name(), ".pml") {
+				path := filepath.Join(dir, file.Name())
+				isEphemeral, err := IsEphemeral(path)
+				if err != nil {
+					continue // Skip files with errors
+				}
+				if isEphemeral {
+					ephemeralBlocks = append(ephemeralBlocks, path)
+				}
 			}
 		}
 	}

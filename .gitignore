@@ -18,3 +18,4 @@ bin/
 cmd/killresults/killresults
 impl1
 
+.aider.*

@@ -172,11 +172,12 @@ What is 2+2?
 	}
 
 	link := contentStr[linkStart : linkStart+linkEnd+1]
-	resultFile := strings.Split(strings.Split(link, ":")[1], ")")[0]
-	resultFile = strings.Trim(resultFile, `"`)
+	resultFile := strings.TrimPrefix(link, ":--(r/")
+	resultFile = strings.TrimSuffix(resultFile, ")")
 
 	// Verify result file exists
-	if _, err := os.Stat(filepath.Join(tmpDir, resultFile)); os.IsNotExist(err) {
+	resultsDir := filepath.Join(tmpDir, ".pml", "results")
+	if _, err := os.Stat(filepath.Join(resultsDir, resultFile)); os.IsNotExist(err) {
 		t.Errorf("Result file %s does not exist", resultFile)
 	}
 }
@@ -188,7 +189,7 @@ func TestResultFileNaming(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	parser := NewParser(&mockLLM{response: "Test response"}, "sources", "compiled", "results")
+	parser := NewParser(&mockLLM{response: "Test response"}, tmpDir, tmpDir, tmpDir)
 
 	// Create multiple blocks in a file
 	srcFile := filepath.Join(tmpDir, "multi.pml")
@@ -214,14 +215,15 @@ Q3
 	}
 
 	// Check result files
-	files, err := os.ReadDir(tmpDir)
+	resultsDir := filepath.Join(tmpDir, ".pml", "results")
+	files, err := os.ReadDir(resultsDir)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	resultFiles := make([]string, 0)
 	for _, f := range files {
-		if f.Name() != "multi.pml" && strings.HasSuffix(f.Name(), ".pml") {
+		if strings.HasSuffix(f.Name(), ".pml") {
 			resultFiles = append(resultFiles, f.Name())
 		}
 	}

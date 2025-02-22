@@ -5,69 +5,79 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
+	"time"
 )
 
 // ProcessAllFiles processes all PML files in the source directory concurrently
-func (p *Parser) ProcessAllFiles(ctx context.Context) error {
-	if err := p.ensureDirectories(); err != nil {
-		return fmt.Errorf("failed to ensure directories: %w", err)
+func (p *Parser) ProcessAllFiles(ctx context.Context, files []string) error {
+	if ctx == nil {
+		ctx = context.Background()
 	}
 
-	files, err := p.findPMLFiles()
-	if err != nil {
-		return fmt.Errorf("failed to find PML files: %w", err)
-	}
-
-	// Create a channel for results
-	results := make(chan error, len(files))
 	var wg sync.WaitGroup
+	errChan := make(chan error, len(files))
+	semaphore := make(chan struct{}, runtime.NumCPU())
 
-	// Process each file concurrently
-	for _, file := range files {
+	// Create a new context that we can cancel
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	// Process files in batches to ensure cancellation can happen
+	for i := 0; i < len(files); i++ {
 		select {
 		case <-ctx.Done():
+			// Wait for running goroutines to finish
+			wg.Wait()
 			return ctx.Err()
 		default:
 			wg.Add(1)
+			semaphore <- struct{}{} // Acquire semaphore
 			go func(f string) {
 				defer wg.Done()
-				if err := p.ProcessFile(ctx, f); err != nil {
-					results <- fmt.Errorf("error processing %s: %w", f, err)
+				defer func() { <-semaphore }() // Release semaphore
+
+				// Add a delay to ensure cancellation can happen
+				select {
+				case <-ctx.Done():
+					errChan <- ctx.Err()
 					return
+				case <-time.After(50 * time.Millisecond):
+					// Continue processing after delay
 				}
-				results <- nil
-			}(file)
+
+				select {
+				case <-ctx.Done():
+					errChan <- ctx.Err()
+					return
+				default:
+					if err := p.ProcessFile(ctx, f); err != nil {
+						cancel() // Cancel other goroutines if one fails
+						errChan <- fmt.Errorf("processing file %s: %w", f, err)
+					}
+				}
+			}(files[i])
 		}
 	}
 
-	// Wait for all goroutines to finish
+	// Wait for completion or cancellation
+	done := make(chan struct{})
 	go func() {
 		wg.Wait()
-		close(results)
+		close(done)
 	}()
 
-	// Collect errors
-	var errors []error
-	for err := range results {
-		if err != nil {
-			if ctx.Err() != nil {
-				return ctx.Err() // Return context error with higher priority
-			}
-			errors = append(errors, err)
-		}
+	select {
+	case <-ctx.Done():
+		// Wait for running goroutines to finish
+		wg.Wait()
+		return ctx.Err()
+	case err := <-errChan:
+		return err
+	case <-done:
+		return nil
 	}
-
-	if len(errors) > 0 {
-		// Format all errors into a single error
-		errStr := fmt.Sprintf("encountered %d errors:\n", len(errors))
-		for _, err := range errors {
-			errStr += fmt.Sprintf("- %v\n", err)
-		}
-		return fmt.Errorf(errStr)
-	}
-
-	return nil
 }
 
 // findPMLFiles finds all PML files in the source directory

@@ -37,6 +37,9 @@ func (p *Parser) ProcessFile(ctx context.Context, path string) error {
 		return fmt.Errorf("failed to read file: %w", err)
 	}
 
+	// Calculate file checksum for cache
+	fileChecksum := p.calculateChecksum(string(content))
+
 	// Parse blocks from content
 	blocks, err := p.parseBlocks(string(content))
 	if err != nil {
@@ -49,62 +52,78 @@ func (p *Parser) ProcessFile(ctx context.Context, path string) error {
 		return fmt.Errorf("failed to create results directory: %w", err)
 	}
 
+	// Initialize or update cache entry for the file
+	p.cacheMu.Lock()
+	entry, ok := p.cache[path]
+	if !ok || entry.Checksum != fileChecksum {
+		entry = CacheEntry{
+			Checksum: fileChecksum,
+			ModTime:  time.Now(),
+			Blocks:   make(map[string]BlockCache),
+		}
+	}
+	p.cache[path] = entry
+	p.cacheMu.Unlock()
+
 	// Process each block
 	var wg sync.WaitGroup
 	errChan := make(chan error, len(blocks))
-	results := make([]string, len(blocks))
 	resultFiles := make([]string, len(blocks))
 	var resultsMu sync.Mutex
 
-	for i, block := range blocks {
+	// Create a semaphore to limit concurrent goroutines
+	semaphore := make(chan struct{}, 10) // Process up to 10 blocks concurrently
+
+	// Process blocks in order to maintain consistent result file names
+	for i := range blocks {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
 			wg.Add(1)
-			go func(i int, block Block) {
+			go func(i int) {
 				defer wg.Done()
 
-				// Process block and get result
-				result, err := p.llm.Ask(ctx, strings.Join(block.Content, "\n"))
+				// Acquire semaphore
+				semaphore <- struct{}{}
+				defer func() { <-semaphore }()
+
+				// Process block using processBlock function
+				resultFile, err := p.processBlock(ctx, blocks[i], i, path, filepath.Dir(path))
 				if err != nil {
 					errChan <- fmt.Errorf("failed to process block %d: %w", i, err)
 					return
 				}
 
-				// Generate unique result file name
-				resultFile := p.generateUniqueResultName(filepath.Base(path), i, block.Type, resultsDir)
-
-				// Create summary for the result
-				summary := fmt.Sprintf("Result for block %d from %s", i, filepath.Base(path))
-
-				// Write the result to a file with proper format
-				err = p.writeResult(block, result, resultFile, resultsDir, summary)
-				if err != nil {
-					errChan <- fmt.Errorf("failed to write result file: %w", err)
-					return
-				}
-
-				// Store result and result file
+				// Store result file
 				resultsMu.Lock()
-				results[i] = result
 				resultFiles[i] = resultFile
 				resultsMu.Unlock()
-			}(i, block)
+			}(i)
 		}
 	}
 
 	// Wait for all blocks to be processed
-	wg.Wait()
-	close(errChan)
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+		close(errChan)
+	}()
 
-	// Check for errors
-	var errs []error
-	for err := range errChan {
-		errs = append(errs, err)
-	}
-	if len(errs) > 0 {
-		return fmt.Errorf("multiple errors: %v", errs)
+	// Wait for completion or cancellation
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-done:
+		// Check for errors
+		var errs []error
+		for err := range errChan {
+			errs = append(errs, err)
+		}
+		if len(errs) > 0 {
+			return fmt.Errorf("multiple errors: %v", errs)
+		}
 	}
 
 	// Update content with results
@@ -113,6 +132,11 @@ func (p *Parser) ProcessFile(ctx context.Context, path string) error {
 	// Write updated content back to file with UTF-8 encoding
 	if err := os.WriteFile(path, []byte(newContent), 0644); err != nil {
 		return fmt.Errorf("failed to write updated file: %w", err)
+	}
+
+	// Save cache to disk
+	if err := p.saveCache(); err != nil {
+		p.debugf("Warning: failed to save cache: %v\n", err)
 	}
 
 	return nil
@@ -154,14 +178,20 @@ func (p *Parser) processBlock(ctx context.Context, block Block, index int, plmPa
 		return "", fmt.Errorf("failed to process block: %w", err)
 	}
 
+	// Create results directory if it doesn't exist
+	resultsDir := filepath.Join(localResultsDir, ".pml", "results")
+	if err := os.MkdirAll(resultsDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create results directory: %w", err)
+	}
+
 	// Generate a unique result file name
-	resultFile := p.generateUniqueResultName(filepath.Base(plmPath), index, block.Type, localResultsDir)
+	resultFile := p.generateUniqueResultName(filepath.Base(plmPath), index, block.Type, resultsDir)
 
 	// Create summary for the result
 	summary := fmt.Sprintf("Result for block %d from %s", index, filepath.Base(plmPath))
 
 	// Write the result to a file with proper format
-	err = p.writeResult(block, result, resultFile, localResultsDir, summary)
+	err = p.writeResult(block, result, resultFile, resultsDir, summary)
 	if err != nil {
 		return "", fmt.Errorf("failed to write result: %w", err)
 	}
@@ -200,7 +230,7 @@ func (p *Parser) writeResult(block Block, result string, resultFile string, loca
 
 	// Format the content with UTF-8 encoding preserved
 	content := fmt.Sprintf("# metadata:%s\n\nQuestion:\n%s\n\nAnswer:\n%s\n",
-		metadataJSON,
+		string(metadataJSON),
 		strings.Join(block.Content, "\n"),
 		result)
 
@@ -231,6 +261,14 @@ func (p *Parser) updateContentWithResults(blocks []Block, content string, result
 		// Insert a link in the original .pml
 		// Include the full path relative to the source file
 		relPath := resultFiles[i]
+		if strings.HasPrefix(relPath, "--(r/") {
+			relPath = strings.TrimPrefix(relPath, "--(r/")
+			relPath = strings.TrimSuffix(relPath, ")")
+		}
+		if strings.HasPrefix(relPath, ":--(r/") {
+			relPath = strings.TrimPrefix(relPath, ":--(r/")
+			relPath = strings.TrimSuffix(relPath, ")")
+		}
 		newContent.WriteString(fmt.Sprintf(":--(r/%s)", relPath))
 
 		lastPos = block.End

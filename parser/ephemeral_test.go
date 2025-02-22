@@ -3,6 +3,7 @@ package parser
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -194,9 +195,7 @@ func TestEphemeralBlockProcessing(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create an ephemeral file
-	content := `# metadata:{"is_ephemeral":true}
-:ask
+	content := `:ask
 What is 2+2?
 :--`
 
@@ -206,35 +205,50 @@ What is 2+2?
 		t.Fatal(err)
 	}
 
-	parser := NewParser(&mockLLM{response: "Test response"}, tmpDir, tmpDir, tmpDir)
+	// Create proper directory structure
+	compiledDir := filepath.Join(tmpDir, "compiled")
+	resultsDir := filepath.Join(tmpDir, "results")
+	if err := os.MkdirAll(compiledDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(resultsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	parser := NewParser(&mockLLM{response: "Test response"}, tmpDir, compiledDir, resultsDir)
 	err = parser.ProcessFile(nil, srcFile)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// Verify the result file is also marked as ephemeral
-	files, err := os.ReadDir(tmpDir)
-	if err != nil {
-		t.Fatal(err)
-	}
+	// Check both the local .pml/results directory and the root results directory
+	localResultsDir := filepath.Join(filepath.Dir(srcFile), ".pml", "results")
+	resultDirs := []string{localResultsDir, resultsDir}
 
 	foundResult := false
-	for _, f := range files {
-		if f.IsDir() {
-			continue
+	for _, dir := range resultDirs {
+		files, err := os.ReadDir(dir)
+		if err != nil {
+			continue // Skip directories that don't exist
 		}
-		if f.Name() != "ephemeral.pml" {
-			// This should be a result file
-			resultPath := filepath.Join(tmpDir, f.Name())
-			isEph, err := IsEphemeral(resultPath)
-			if err != nil {
-				t.Errorf("Failed to check if result is ephemeral: %v", err)
+
+		for _, f := range files {
+			if f.IsDir() {
 				continue
 			}
-			if !isEph {
-				t.Errorf("Result file %s should be marked as ephemeral", f.Name())
+			if strings.HasSuffix(f.Name(), ".pml") {
+				// This should be a result file
+				resultPath := filepath.Join(dir, f.Name())
+				isEph, err := IsEphemeral(resultPath)
+				if err != nil {
+					t.Errorf("Failed to check if result is ephemeral: %v", err)
+					continue
+				}
+				if !isEph {
+					t.Errorf("Result file %s should be marked as ephemeral", f.Name())
+				}
+				foundResult = true
 			}
-			foundResult = true
 		}
 	}
 
