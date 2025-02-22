@@ -26,6 +26,7 @@ type Parser struct {
 	debug          bool
 	forceProcess   bool
 	resultFiles    sync.Map // Map to track result files being written
+	fileLocks      sync.Map // Map to track file locks
 }
 
 // Block represents a block in PML file

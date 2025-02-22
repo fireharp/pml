@@ -15,7 +15,7 @@ func TestLoadCacheWhenFileMissing(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	parser := NewParser(&mockLLM{response: "Test response"}, "sources", "compiled", "results")
-	tmpDir, err := os.MkdirTemp("", "pml-cache-test-LoadCache-*")
+	tmpDir, err = os.MkdirTemp("", "pml-cache-test-LoadCache-*")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -35,11 +35,11 @@ func TestSaveAndLoadCache(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	tmpDir, err := os.MkdirTemp("", "pml-cache-test-SaveAndLoad-*")
+	tmpDir, err = os.MkdirTemp("", "pml-cache-test-SaveAndLoad-*")
 	if err != nil {
 		t.Fatal(err)
 	}
-	tmpDir, err := os.MkdirTemp("", "pml-cache-test-Corrupt-*")
+	tmpDir, err = os.MkdirTemp("", "pml-cache-test-Corrupt-*")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -98,11 +98,11 @@ func TestCacheExpiry(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	parser := NewParser(&mockLLM{response: "Test response"}, "sources", "compiled", "results")
-	tmpDir, err := os.MkdirTemp("", "pml-cache-test-Expiry-*")
+	tmpDir, err = os.MkdirTemp("", "pml-cache-test-Expiry-*")
 	if err != nil {
 		t.Fatal(err)
 	}
-	tmpDir, err := os.MkdirTemp("", "pml-cache-test-BlockResults-*")
+	tmpDir, err = os.MkdirTemp("", "pml-cache-test-BlockResults-*")
 	if err != nil {
 		t.Fatal(err)
 	}

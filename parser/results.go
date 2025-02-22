@@ -2,9 +2,7 @@ package parser
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
-	"time"
+	"sync"
 )
 
 // generateUniqueResultName generates a friendly name for a result file that is guaranteed to be unique

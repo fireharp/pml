@@ -85,7 +85,7 @@ func (p *Parser) ProcessFile(ctx context.Context, plmPath string) error {
 	var errMu sync.Mutex
 	var firstErr error
 	var resultMu sync.Mutex
-
+	pmlDir := filepath.Dir(plmPath)
 	for i := range blocks {
 		wg.Add(1)
 		go func(i int) {
