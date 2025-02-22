@@ -31,7 +31,11 @@ func NewParser(llm LLMClient, sourcesDir, compiledDir, resultsDir string) *Parse
 		p.debugf("Warning: failed to create cache directory: %v\n", err)
 	}
 
-	// Load cache from disk
+	// If running tests, clear the results directory.
+	if os.Getenv("PML_TEST") == "1" {
+		os.RemoveAll(p.rootResultsDir)
+		os.MkdirAll(p.rootResultsDir, 0755)
+	}
 	p.loadCache()
 
 	return p

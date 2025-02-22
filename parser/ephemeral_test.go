@@ -97,7 +97,7 @@ Q normal
 		}
 	}
 
-	parser := NewParser(&mockLLM{response: "Test response"}, tmpDir, filepath.Join(tmpDir, "compiled"), tmpDir)
+	parser := NewParser(&mockLLM{response: "Test response"}, tmpDir, tmpDir, tmpDir)
 	ephList, err := parser.ListEphemeralBlocks()
 	if err != nil {
 		t.Fatalf("ListEphemeralBlocks failed: %v", err)
@@ -206,7 +206,7 @@ What is 2+2?
 		t.Fatal(err)
 	}
 
-	parser := NewParser(&mockLLM{response: "Test response"}, tmpDir, filepath.Join(tmpDir, "compiled"), tmpDir)
+	parser := NewParser(&mockLLM{response: "Test response"}, tmpDir, tmpDir, tmpDir)
 	err = parser.ProcessFile(nil, srcFile)
 	if err != nil {
 		t.Fatal(err)

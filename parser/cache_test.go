@@ -40,7 +40,7 @@ func TestSaveAndLoadCache(t *testing.T) {
     defer os.RemoveAll(tmpDir)
 
     cachePath := filepath.Join(tmpDir, "cache.json")
-	parser := NewParser(&mockLLM{response: "Test response"}, "sources", "compiled", "results")
+	parser := NewParser(&mockLLM{response: "Test response"}, tmpDir, tmpDir, tmpDir)
 	parser.cacheFile = cachePath
 
 	// Write something to cache
@@ -77,7 +77,7 @@ func TestCorruptCacheFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	parser := NewParser(&mockLLM{response: "Test response"}, "sources", "compiled", "results")
+	parser := NewParser(&mockLLM{response: "Test response"}, tmpDir, tmpDir, tmpDir)
 	parser.cacheFile = cachePath
 	parser.loadCache()
 
@@ -93,7 +93,7 @@ func TestCacheExpiry(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	parser := NewParser(&mockLLM{response: "Test response"}, "sources", "compiled", "results")
+	parser := NewParser(&mockLLM{response: "Test response"}, tmpDir, tmpDir, tmpDir)
 	tmpDir, err = os.MkdirTemp("", "pml-cache-test-Expiry-*")
 	if err != nil {
 		t.Fatal(err)
@@ -148,7 +148,7 @@ func TestCacheBlockResults(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	parser := NewParser(&mockLLM{response: "Test response"}, "sources", "compiled", "results")
+	parser := NewParser(&mockLLM{response: "Test response"}, tmpDir, tmpDir, tmpDir)
 	parser.cacheFile = filepath.Join(tmpDir, "cache.json")
 
 	// Create a test file

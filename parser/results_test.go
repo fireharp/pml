@@ -14,7 +14,7 @@ func TestGenerateUniqueResultName(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	parser := NewParser(&mockLLM{response: "Test response"}, "sources", "compiled", "results")
+	parser := NewParser(&mockLLM{response: "Test response"}, tmpDir, tmpDir, tmpDir)
 	parser.SetForceProcess(true)
 
 	// Test basic name generation
@@ -37,7 +37,7 @@ func TestGenerateUniqueResultName(t *testing.T) {
 }
 
 func TestFormatResult(t *testing.T) {
-	parser := NewParser(&mockLLM{response: "Test response"}, "sources", "compiled", "results")
+	parser := NewParser(&mockLLM{response: "Test response"}, tmpDir, tmpDir, tmpDir)
 
 	testCases := []struct {
 		name     string
@@ -88,7 +88,7 @@ func TestWriteResult(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	parser := NewParser(&mockLLM{response: "Test response"}, "sources", "compiled", "results")
+	parser := NewParser(&mockLLM{response: "Test response"}, tmpDir, tmpDir, tmpDir)
 
 	block := Block{
 		Type:    ":ask",
@@ -129,7 +129,7 @@ func TestResultLinkGeneration(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	parser := NewParser(&mockLLM{response: "Test response"}, "sources", "compiled", "results")
+	parser := NewParser(&mockLLM{response: "Test response"}, tmpDir, tmpDir, tmpDir)
 
 	// Create a test file and process it
 	srcFile := filepath.Join(tmpDir, "test.pml")
