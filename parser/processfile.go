@@ -89,19 +89,29 @@ func (p *Parser) ProcessFile(ctx context.Context, plmPath string) error {
 		go func(i int) {
 			defer wg.Done()
 
-			result, err := p.processBlock(ctx, blocks[i], i, plmPath, pmlDir)
-			if err != nil {
+			select {
+			case <-ctx.Done():
 				errMu.Lock()
 				if firstErr == nil {
-					firstErr = fmt.Errorf("failed to process block %d: %w", i, err)
+					firstErr = ctx.Err()
 				}
 				errMu.Unlock()
 				return
-			}
+			default:
+				result, err := p.processBlock(ctx, blocks[i], i, plmPath, pmlDir)
+				if err != nil {
+					errMu.Lock()
+					if firstErr == nil {
+						firstErr = fmt.Errorf("failed to process block %d: %w", i, err)
+					}
+					errMu.Unlock()
+					return
+				}
 
-			resultMu.Lock()
-			results[i] = result
-			resultMu.Unlock()
+				resultMu.Lock()
+				results[i] = result
+				resultMu.Unlock()
+			}
 		}(i)
 	}
 
@@ -140,6 +150,11 @@ func (p *Parser) ProcessFile(ctx context.Context, plmPath string) error {
 	}
 	p.cache[plmPath] = entry
 	p.cacheMu.Unlock()
+
+	// Save cache once at the end
+	if err := p.saveCache(); err != nil {
+		p.debugf("Warning: failed to save cache: %v\n", err)
+	}
 
 	return nil
 }
@@ -253,21 +268,33 @@ func (p *Parser) updateContentWithResults(blocks []Block, content string, result
 		// Write content before this block
 		newContent.WriteString(content[lastPos:block.Start])
 
-		// Generate unique result file name and write the result file.
+		// Generate unique result file name and write the result file
 		resultName := p.generateUniqueResultName(sourceFile, i, localResultsDir)
 		resultFile := fmt.Sprintf("%s.pml", resultName)
 		summary := fmt.Sprintf("Result for block %d from %s", i, sourceFile)
-		if err := p.writeResult(block, results[i], resultFile, localResultsDir, summary); err != nil {
-			p.debugf("Failed to write result file: %v\n", err)
-		}
 
-		// Embed result link in the content (format can be adjusted as needed)
-		newContent.WriteString(fmt.Sprintf(":--(r/%s:%q)", resultName, resultFile))
+		// Create ephemeral content with metadata, question and answer
+		questionText := strings.Join(block.Content, "\n")
+		ephemeralContent := fmt.Sprintf(`# metadata:{"is_ephemeral":true}
+
+Question:
+%s
+
+Answer:
+%s`, questionText, results[i])
+
+		if err := p.writeResult(block, ephemeralContent, resultFile, localResultsDir, summary); err != nil {
+			// If write fails, just inline the result as fallback
+			newContent.WriteString(results[i])
+		} else {
+			// Insert a link in the original .pml
+			newContent.WriteString(fmt.Sprintf(":--(r/%s:\"%s\")", resultName, results[i]))
+		}
 
 		lastPos = block.End
 	}
 
-	// Write any remaining content after the last block
+	// Write anything after the last block
 	if lastPos < len(content) {
 		newContent.WriteString(content[lastPos:])
 	}
