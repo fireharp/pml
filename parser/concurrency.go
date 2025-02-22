@@ -51,11 +51,11 @@ func (p *Parser) ProcessAllFiles(ctx context.Context) error {
 	var errors []error
 	for err := range results {
 		if err != nil {
+			if ctx.Err() != nil {
+				return ctx.Err() // Return context error with higher priority
+			}
 			errors = append(errors, err)
 		}
-	}
-	if ctx.Err() != nil {
-	    return ctx.Err()
 	}
 
 	if len(errors) > 0 {

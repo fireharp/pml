@@ -278,7 +278,7 @@ func (p *Parser) updateContentWithResults(blocks []Block, content string, result
 		newContent.WriteString(content[lastPos:block.Start])
 
 		// Generate unique result file name
-		uniqueName := p.generateUniqueResultName(sourceFile, i, localResultsDir)
+		uniqueName := p.generateUniqueResultName(sourceFile, i, block.Type, localResultsDir)
 		resultFile := uniqueName + ".pml"
 		summary := fmt.Sprintf("Result for block %d from %s", i, sourceFile)
 

@@ -8,7 +8,7 @@ import (
 )
 
 // generateUniqueResultName generates a friendly name for a result file that is guaranteed to be unique
-func (p *Parser) generateUniqueResultName(sourceFile string, blockIndex int, localResultsDir string) string {
+func (p *Parser) generateUniqueResultName(sourceFile string, blockIndex int, blockType string, localResultsDir string) string {
 	counter := 0
 	var resultName string
 	for {
@@ -22,8 +22,16 @@ func (p *Parser) generateUniqueResultName(sourceFile string, blockIndex int, loc
 		adjIndex := (blockIndex + hash + counter) % len(adjectives)
 		nounIndex := ((blockIndex + hash + counter) * 7) % len(nouns)
 
-		// Add prefix based on block type (assuming :ask for now since we don't have block type)
-		prefix := "ask_"
+		// Add prefix based on block type
+		prefix := ""
+		switch blockType {
+		case DirectiveAsk:
+			prefix = "ask_"
+		case DirectiveDo:
+			prefix = "do_"
+		default:
+			prefix = "result_"
+		}
 		resultName = fmt.Sprintf("%s%s_%s_%d", prefix, adjectives[adjIndex], nouns[nounIndex], counter)
 
 		// Check if this name is already taken
