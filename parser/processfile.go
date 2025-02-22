@@ -201,7 +201,7 @@ func (p *Parser) processBlock(ctx context.Context, block Block, index int, plmPa
 		return "", fmt.Errorf("failed to process block: %w", err)
 	}
 
-	// Update cache immediately after processing
+	// Update cache entry for this block
 	p.cacheMu.Lock()
 	entry, ok := p.cache[plmPath]
 	if !ok {
@@ -277,9 +277,9 @@ func (p *Parser) updateContentWithResults(blocks []Block, content string, result
 		// Write content before this block
 		newContent.WriteString(content[lastPos:block.Start])
 
-		// Generate unique result file name and write the result file
-		resultName := p.generateUniqueResultName(sourceFile, i, localResultsDir)
-		resultFile := fmt.Sprintf("%s.pml", resultName)
+		// Generate unique result file name
+		uniqueName := p.generateUniqueResultName(sourceFile, i, localResultsDir)
+		resultFile := uniqueName + ".pml"
 		summary := fmt.Sprintf("Result for block %d from %s", i, sourceFile)
 
 		// Create ephemeral content with metadata, question and answer
@@ -297,7 +297,7 @@ Answer:
 			newContent.WriteString(results[i])
 		} else {
 			// Insert a link in the original .pml
-			newContent.WriteString(fmt.Sprintf(":--(r/%s:\"%s\")", resultName, results[i]))
+			newContent.WriteString(fmt.Sprintf(":--(r/%s:\"%s\")", uniqueName, results[i]))
 		}
 
 		lastPos = block.End
