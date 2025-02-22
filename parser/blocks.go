@@ -41,15 +41,21 @@ func (p *Parser) parseBlocks(content string) ([]Block, error) {
 		lineLen := len(line) + 1 // +1 for newline
 		trimmedLine := strings.TrimSpace(line)
 
-		// Treat any line starting with ":--" as DirectiveEnd
-		if strings.HasPrefix(trimmedLine, DirectiveEnd) {
+		// Treat a line exactly equal to ":--" as the end marker.
+		if trimmedLine == DirectiveEnd {
 			if currentBlock == nil {
-				// Found end marker without a block
 				return nil, fmt.Errorf("found end marker without a block at line %d", i+1)
 			}
 			currentBlock.End = currentPos + len(line)
 			blocks = append(blocks, *currentBlock)
 			currentBlock = nil
+			currentPos += lineLen
+			continue
+		} else if strings.HasPrefix(trimmedLine, DirectiveEnd) {
+			// If the line starts with something like ":--(r/...", skip block termination and treat as normal content.
+			if currentBlock != nil {
+				currentBlock.Content = append(currentBlock.Content, line)
+			}
 			currentPos += lineLen
 			continue
 		}

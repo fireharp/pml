@@ -23,6 +23,10 @@ func (p *Parser) ProcessFile(ctx context.Context, plmPath string) error {
     lockInterface, _ := p.fileLocks.LoadOrStore(plmPath, &sync.Mutex{})
     fileLock := lockInterface.(*sync.Mutex)
     fileLock.Lock()
+
+    p.usedNamesMu.Lock()
+    p.usedNames = make(map[string]bool)
+    p.usedNamesMu.Unlock()
     defer fileLock.Unlock()
 	// Skip .pml/ directories and check if the path is a directory
 	if strings.Contains(plmPath, "/.pml/") || strings.Contains(plmPath, "\\.pml\\") {
@@ -52,8 +56,8 @@ func (p *Parser) ProcessFile(ctx context.Context, plmPath string) error {
 	}
 	// (Removed) Do not skip processing even if a result link is present.
 
-	// Use the parser’s designated results directory.
-	resultsDir := p.rootResultsDir
+	// Use a local ".pml" directory next to the source file for ephemeral result files.
+	resultsDir := filepath.Join(filepath.Dir(plmPath), ".pml")
 	if err = os.MkdirAll(resultsDir, 0755); err != nil {
 		return fmt.Errorf("failed to create results directory: %w", err)
 	}

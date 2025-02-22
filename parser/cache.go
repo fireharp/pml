@@ -14,13 +14,6 @@ import (
 
 // loadCache loads the cache from disk
 func (p *Parser) loadCache() {
-	// In test mode (cache files in temp directories), always start with an empty cache.
-	if strings.Contains(p.cacheFile, "pml-cache-test-") {
-		p.cacheMu.Lock()
-		p.cache = make(map[string]CacheEntry)
-		p.cacheMu.Unlock()
-		return
-	}
 
 	data, err := os.ReadFile(p.cacheFile)
 	if err != nil {
