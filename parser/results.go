@@ -2,6 +2,8 @@ package parser
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"sync"
 )
 
@@ -41,14 +43,21 @@ func (p *Parser) generateUniqueResultName(sourceFile string, blockIndex int, blo
 			prefix = "result_"
 		}
 
-		resultName = fmt.Sprintf("%s%s_%s_block%d_%d", prefix, adjectives[adjIndex], nouns[nounIndex], blockIndex, counter)
+		resultName = fmt.Sprintf("%s%s_%s_block%d_%d.pml", prefix, adjectives[adjIndex], nouns[nounIndex], blockIndex, counter)
 
-		// Use p.usedNames to enforce uniqueness in memory.
+		// Check both in-memory and on disk for uniqueness
 		if _, exists := p.usedNames[resultName]; exists {
 			counter++
 			continue
 		}
-		// Mark as used and update counter.
+
+		// Check if file exists in the local results directory
+		if _, err := os.Stat(filepath.Join(localResultsDir, resultName)); err == nil {
+			counter++
+			continue
+		}
+
+		// Mark as used and update counter
 		p.usedNames[resultName] = true
 		uniqueNameCounters.Store(key, counter+1)
 		break

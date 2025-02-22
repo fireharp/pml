@@ -41,6 +41,12 @@ func (p *Parser) parseBlocks(content string) ([]Block, error) {
 		lineLen := len(line) + 1 // +1 for newline
 		trimmedLine := strings.TrimSpace(line)
 
+		// Skip empty lines if we're not in a block
+		if trimmedLine == "" {
+			currentPos += lineLen
+			continue
+		}
+
 		// Treat a line exactly equal to ":--" as the end marker.
 		if trimmedLine == DirectiveEnd {
 			if currentBlock == nil {
