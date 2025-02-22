@@ -2,6 +2,7 @@ package parser
 
 import (
 	"context"
+	"time"
 )
 
 // mockLLM implements LLMClient for testing
