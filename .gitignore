@@ -1,14 +1,20 @@
 .venv
 .env
 
-impl1
 IMPL1.md
 
-repomix-output.txt
+repomix-output.*
 
-results/
-
-bin/
 __pycache__/
+
+# pml files
+results/
 .pml/
 *.pml.py
+
+# bin
+bin/
+*.bin
+cmd/killresults/killresults
+impl1
+

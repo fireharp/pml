@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 )
 
 // mockLLM implements LLMClient for testing
@@ -158,13 +159,19 @@ func setupTestPythonPackage(t *testing.T, dir string) {
 	// Create test_directives.py for testing
 	testDirectives := `"""Test directives for testing."""
 from typing import Optional
+import time
+import random
 
 def process_ask(prompt: str) -> str:
-    """Mock process_ask that returns a fixed response."""
+    """Mock process_ask that returns a fixed response with random delay."""
+    # Add random delay between 100ms and 300ms
+    time.sleep(random.uniform(0.1, 0.3))
     return "Test response"
 
 def process_do(action: str) -> str:
-    """Mock process_do that returns a fixed response."""
+    """Mock process_do that returns a fixed response with random delay."""
+    # Add random delay between 100ms and 300ms
+    time.sleep(random.uniform(0.1, 0.3))
     return "Test response"
 `
 	if err := os.WriteFile(filepath.Join(dir, "test_directives.py"), []byte(testDirectives), 0644); err != nil {
@@ -177,10 +184,17 @@ def process_do(action: str) -> str:
 		t.Fatal(err)
 	}
 
-	directivesContent := `def process_ask(prompt):
+	directivesContent := `import time
+import random
+
+def process_ask(prompt):
+    # Add random delay between 100ms and 300ms
+    time.sleep(random.uniform(0.1, 0.3))
     return "Test response"
 
 def process_do(action):
+    # Add random delay between 100ms and 300ms
+    time.sleep(random.uniform(0.1, 0.3))
     return "Test response"
 `
 	if err := os.WriteFile(filepath.Join(pmlDir, "directives.py"), []byte(directivesContent), 0644); err != nil {
@@ -535,5 +549,185 @@ What is 2+2?
 
 	if processCount != 0 {
 		t.Errorf("Expected still 1 processing (cache hit), got %d", processCount)
+	}
+}
+
+func TestParallelBlockProcessing(t *testing.T) {
+	// Create a temporary directory for the test
+	tempDir, err := os.MkdirTemp("", "pml_test_*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// Set up test environment
+	setupTestPythonPackage(t, tempDir)
+	os.Setenv("PYTHONPATH", tempDir)
+
+	// Create test file with multiple blocks
+	testFile := filepath.Join(tempDir, "test.pml")
+	content := `:ask
+What is 2+2?
+:--
+
+:ask
+What is 3+3?
+:--
+
+:ask
+What is 4+4?
+:--
+
+:ask
+What is 5+5?
+:--
+`
+	if err := os.WriteFile(testFile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Process the file
+	parser := NewParser(&mockLLM{response: "Test response"}, tempDir, filepath.Join(tempDir, "compiled"), filepath.Join(tempDir, "results"))
+	startTime := time.Now()
+	if err := parser.ProcessFile(context.Background(), testFile); err != nil {
+		t.Fatal(err)
+	}
+	totalDuration := time.Since(startTime)
+
+	// Check if total duration is less than sum of individual delays
+	// Each block takes 100-300ms, so 4 blocks in sequence would take at least 400ms
+	// If parallel, it should take significantly less
+	if totalDuration > 400*time.Millisecond {
+		t.Errorf("Processing took too long (%v), suggesting sequential execution", totalDuration)
+	}
+
+	// Check if result files were created
+	pmlDir := filepath.Join(filepath.Dir(testFile), ".pml")
+	files, err := os.ReadDir(pmlDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resultCount := 0
+	for _, file := range files {
+		if strings.HasSuffix(file.Name(), ".pml") {
+			resultCount++
+			// Read result file and verify content
+			content, err := os.ReadFile(filepath.Join(pmlDir, file.Name()))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(string(content), "Test response") {
+				t.Errorf("Result file %s does not contain expected response", file.Name())
+			}
+		}
+	}
+
+	if resultCount != 4 {
+		t.Errorf("Expected 4 result files, got %d", resultCount)
+	}
+}
+
+func TestProcessAllFiles(t *testing.T) {
+	// Create a temporary directory for the test
+	tempDir, err := os.MkdirTemp("", "pml_test_*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// Set up test environment
+	setupTestPythonPackage(t, tempDir)
+	os.Setenv("PYTHONPATH", tempDir)
+
+	// Create test files
+	files := []struct {
+		name    string
+		content string
+	}{
+		{
+			name: "file1.pml",
+			content: `:ask
+What is 2+2?
+:--
+
+:ask
+What is 3+3?
+:--`,
+		},
+		{
+			name: "file2.pml",
+			content: `:ask
+What is 4+4?
+:--
+
+:ask
+What is 5+5?
+:--`,
+		},
+		{
+			name: "file3.pml",
+			content: `:ask
+What is 6+6?
+:--
+
+:ask
+What is 7+7?
+:--`,
+		},
+	}
+
+	for _, f := range files {
+		if err := os.WriteFile(filepath.Join(tempDir, f.name), []byte(f.content), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Process all files
+	parser := NewParser(&mockLLM{response: "Test response"}, tempDir, filepath.Join(tempDir, "compiled"), filepath.Join(tempDir, "results"))
+	startTime := time.Now()
+	if err := parser.ProcessAllFiles(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	totalDuration := time.Since(startTime)
+
+	// Check if total duration is less than sum of individual delays
+	// Each block takes 100-300ms, so 6 blocks in sequence would take at least 600ms
+	// If parallel, it should take significantly less
+	if totalDuration > 600*time.Millisecond {
+		t.Errorf("Processing took too long (%v), suggesting sequential execution", totalDuration)
+	}
+
+	// Create .pml directory if it doesn't exist
+	pmlDir := filepath.Join(tempDir, ".pml")
+	if err := os.MkdirAll(pmlDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Check result files for each input file
+	for _, f := range files {
+		files, err := os.ReadDir(pmlDir)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		resultCount := 0
+		for _, file := range files {
+			if strings.HasSuffix(file.Name(), ".pml") {
+				resultCount++
+				// Read result file and verify content
+				content, err := os.ReadFile(filepath.Join(pmlDir, file.Name()))
+				if err != nil {
+					t.Fatal(err)
+				}
+				if !strings.Contains(string(content), "Test response") {
+					t.Errorf("Result file %s does not contain expected response", file.Name())
+				}
+			}
+		}
+
+		if resultCount < 2 {
+			t.Errorf("Expected at least 2 result files for %s, got %d", f.name, resultCount)
+		}
 	}
 }

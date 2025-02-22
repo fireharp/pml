@@ -290,14 +290,42 @@ func (p *Parser) ProcessFile(ctx context.Context, plmPath string) error {
 		return fmt.Errorf("failed to write Python file: %w", err)
 	}
 
-	// Process each block separately and collect results
-	var results []string
-	for i, block := range blocks {
-		result, err := p.processBlock(ctx, block, i, plmPath, blocksDir)
+	// Process blocks in parallel
+	results := make([]string, len(blocks))
+	var wg sync.WaitGroup
+	errCh := make(chan error, len(blocks))
+
+	// Create a semaphore to limit concurrent goroutines
+	const maxConcurrent = 5 // Adjust this value based on your needs
+	sem := make(chan struct{}, maxConcurrent)
+
+	for i := range blocks {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+
+			// Acquire semaphore
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			result, err := p.processBlock(ctx, blocks[i], i, plmPath, blocksDir)
+			if err != nil {
+				errCh <- fmt.Errorf("failed to process block %d: %w", i, err)
+				return
+			}
+			results[i] = result
+		}(i)
+	}
+
+	// Wait for all goroutines to finish
+	wg.Wait()
+	close(errCh)
+
+	// Check for any errors
+	for err := range errCh {
 		if err != nil {
-			return fmt.Errorf("failed to process block %d: %w", i, err)
+			return err
 		}
-		results = append(results, result)
 	}
 
 	// Update PML file with results
@@ -850,6 +878,11 @@ func (p *Parser) executePython(ctx context.Context, pyPath string) ([]string, er
 // 2) Execute all blocks in parallel
 // 3) Update final PML files
 func (p *Parser) ProcessAllFiles(ctx context.Context) error {
+	// Make sure we create the results directory, etc:
+	if err := p.ensureDirectories(); err != nil {
+		return fmt.Errorf("failed to init directories: %w", err)
+	}
+
 	// 1) Find .pml files
 	files, err := p.findPMLFiles()
 	if err != nil {
@@ -860,6 +893,18 @@ func (p *Parser) ProcessAllFiles(ctx context.Context) error {
 	// We can do this in parallel as well, but to keep it simple, do it sequentially
 	var fileBlocks []FileBlocks
 	for _, f := range files {
+		// Create .pml directory for this file
+		pmlDir := filepath.Join(filepath.Dir(f), ".pml")
+		if err := os.MkdirAll(pmlDir, 0755); err != nil {
+			return fmt.Errorf("failed to create .pml directory for %s: %w", f, err)
+		}
+
+		// Create blocks directory
+		blocksDir := filepath.Join(pmlDir, "blocks")
+		if err := os.MkdirAll(blocksDir, 0755); err != nil {
+			return fmt.Errorf("failed to create blocks directory for %s: %w", f, err)
+		}
+
 		fb, err := p.parseAndGeneratePython(f)
 		if err != nil {
 			return fmt.Errorf("parseAndGeneratePython failed for %s: %w", f, err)

@@ -1,5 +1,5 @@
 .venv
-repomix-output.txt
+repomix-output.*
 *.bin
 uv.lock
 results
