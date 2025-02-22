@@ -2,6 +2,7 @@ package parser
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -336,6 +337,16 @@ Run some action
 		callback: func() {},
 	}
 	parser := NewParser(mockLLM, tmpDir, tmpDir, tmpDir)
+
+	// Write result files first
+	for i, block := range blocks {
+		resultName := parser.generateUniqueResultName("test.pml", i, localResultsDir)
+		resultFile := fmt.Sprintf("%s.pml", resultName)
+		summary := fmt.Sprintf("Result for block %d from test.pml", i)
+		if err := parser.writeResult(block, results[i], resultFile, localResultsDir, summary); err != nil {
+			t.Fatalf("Failed to write result file: %v", err)
+		}
+	}
 
 	// Update content with results
 	updatedContent := parser.updateContentWithResults(blocks, content, results, localResultsDir, "test.pml")
