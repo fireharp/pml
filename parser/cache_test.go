@@ -14,7 +14,10 @@ func TestLoadCacheWhenFileMissing(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	parser := NewParser(&mockLLM{response: "Test response"}, "sources", "compiled", "results")
+	parser := NewParser(&mockLLM{response: "Test response"}, tmpDir, tmpDir, tmpDir)
+	parser.SetForceProcess(true)
+	parser.SetForceProcess(true)
+	parser.SetForceProcess(true)
 	tmpDir, err = os.MkdirTemp("", "pml-cache-test-LoadCache-*")
 	if err != nil {
 		t.Fatal(err)
@@ -52,7 +55,7 @@ func TestSaveAndLoadCache(t *testing.T) {
 	}
 
 	// Create new parser and load
-	parser2 := NewParser(&mockLLM{response: "Test response"}, "sources", "compiled", "results")
+	parser2 := NewParser(&mockLLM{response: "Test response"}, tmpDir, tmpDir, tmpDir)
 	parser2.cacheFile = cachePath
 	parser2.loadCache()
 

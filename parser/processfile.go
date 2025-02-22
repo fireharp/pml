@@ -56,8 +56,8 @@ func (p *Parser) ProcessFile(ctx context.Context, plmPath string) error {
 	}
 	// (Removed) Do not skip processing even if a result link is present.
 
-	// Use a local ".pml" directory next to the source file for ephemeral result files.
-	resultsDir := filepath.Join(filepath.Dir(plmPath), ".pml")
+	// Use the parser's designated results directory for ephemeral result files.
+	resultsDir := p.rootResultsDir
 	if err = os.MkdirAll(resultsDir, 0755); err != nil {
 		return fmt.Errorf("failed to create results directory: %w", err)
 	}
@@ -304,7 +304,7 @@ Answer:
 			newContent.WriteString(results[i])
 		} else {
 			// Insert a link in the original .pml
-			newContent.WriteString(fmt.Sprintf(":--(r/%s:\"%s\")", uniqueName, results[i]))
+			newContent.WriteString(fmt.Sprintf(":--(r/%s:\"%s\")", uniqueName+".pml", results[i]))
 		}
 
 		lastPos = block.End

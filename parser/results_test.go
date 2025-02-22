@@ -15,6 +15,7 @@ func TestGenerateUniqueResultName(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	parser := NewParser(&mockLLM{response: "Test response"}, "sources", "compiled", "results")
+	parser.SetForceProcess(true)
 
 	// Test basic name generation
 	name1 := parser.generateUniqueResultName("mySourceFile.pml", 0, ":ask", tmpDir)

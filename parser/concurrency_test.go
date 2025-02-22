@@ -47,6 +47,7 @@ func TestProcessAllFilesWithMixedContent(t *testing.T) {
 
 	// Create parser
 	parser := NewParser(mockLLM, tmpDir, filepath.Join(tmpDir, "compiled"), filepath.Join(tmpDir, "results"))
+	parser.SetForceProcess(true)
 
 	start := time.Now()
 	if err := parser.ProcessAllFiles(context.Background()); err != nil {
