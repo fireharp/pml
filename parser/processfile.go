@@ -12,6 +12,9 @@ import (
 
 // ProcessFile processes a single PML file (parse, generate .py, run blocks in parallel)
 func (p *Parser) ProcessFile(ctx context.Context, plmPath string) error {
+    if ctx == nil {
+        ctx = context.Background()
+    }
     if err := ctx.Err(); err != nil {
         return err
     }
