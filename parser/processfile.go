@@ -229,7 +229,9 @@ func (p *Parser) updateContentWithResults(blocks []Block, content string, result
 		newContent.WriteString(content[lastPos:block.Start])
 
 		// Insert a link in the original .pml
-		newContent.WriteString(fmt.Sprintf(":--(r/%s)", resultFiles[i]))
+		// Include the full path relative to the source file
+		relPath := filepath.Join(".pml", "results", resultFiles[i])
+		newContent.WriteString(fmt.Sprintf(":--(r/%s)", relPath))
 
 		lastPos = block.End
 	}
