@@ -29,21 +29,14 @@ func TestLoadCacheWhenFileMissing(t *testing.T) {
 }
 
 func TestSaveAndLoadCache(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "pml-cache-test-*")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
+    // Create one fresh temp directory dedicated to this test.
+    tmpDir, err := os.MkdirTemp("", "pml-cache-test-SaveAndLoad-*")
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer os.RemoveAll(tmpDir)
 
-	tmpDir, err = os.MkdirTemp("", "pml-cache-test-SaveAndLoad-*")
-	if err != nil {
-		t.Fatal(err)
-	}
-	tmpDir, err = os.MkdirTemp("", "pml-cache-test-Corrupt-*")
-	if err != nil {
-		t.Fatal(err)
-	}
-	cachePath := filepath.Join(tmpDir, "cache.json")
+    cachePath := filepath.Join(tmpDir, "cache.json")
 	parser := NewParser(&mockLLM{response: "Test response"}, "sources", "compiled", "results")
 	parser.cacheFile = cachePath
 

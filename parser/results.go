@@ -9,7 +9,10 @@ import (
 var uniqueNameCounters sync.Map // maps "sourceFile_blockIndex_blockType" (string) to int
 
 func (p *Parser) generateUniqueResultName(sourceFile string, blockIndex int, blockType string, localResultsDir string) string {
-	// Use an in-memory counter so that subsequent calls with the same parameters produce different names.
+	p.usedNamesMu.Lock()
+	defer p.usedNamesMu.Unlock()
+
+	// Use an in-memory counter (uniqueNameCounters) as before.
 	key := fmt.Sprintf("%s_%d_%s", sourceFile, blockIndex, blockType)
 	var counter int
 	if cnt, ok := uniqueNameCounters.Load(key); ok {
@@ -18,28 +21,38 @@ func (p *Parser) generateUniqueResultName(sourceFile string, blockIndex int, blo
 		counter = 0
 	}
 
-	// Compute a hash index from the source file (for some variation)
-	hash := 0
-	for _, c := range sourceFile {
-		hash = (hash*31 + int(c)) % len(nouns)
+	var resultName string
+	for {
+		// Compute a hash index from the source file for variation.
+		hash := 0
+		for _, c := range sourceFile {
+			hash = (hash*31 + int(c)) % len(nouns)
+		}
+		adjIndex := (blockIndex + hash + counter) % len(adjectives)
+		nounIndex := ((blockIndex + hash + counter) * 7) % len(nouns)
+
+		prefix := ""
+		switch blockType {
+		case DirectiveAsk:
+			prefix = "ask_"
+		case DirectiveDo:
+			prefix = "do_"
+		default:
+			prefix = "result_"
+		}
+
+		resultName = fmt.Sprintf("%s%s_%s_block%d_%d", prefix, adjectives[adjIndex], nouns[nounIndex], blockIndex, counter)
+
+		// Use p.usedNames to enforce uniqueness in memory.
+		if _, exists := p.usedNames[resultName]; exists {
+			counter++
+			continue
+		}
+		// Mark as used and update counter.
+		p.usedNames[resultName] = true
+		uniqueNameCounters.Store(key, counter+1)
+		break
 	}
-	adjIndex := (blockIndex + hash + counter) % len(adjectives)
-	nounIndex := ((blockIndex + hash + counter) * 7) % len(nouns)
-
-	prefix := ""
-	switch blockType {
-	case DirectiveAsk:
-		prefix = "ask_"
-	case DirectiveDo:
-		prefix = "do_"
-	default:
-		prefix = "result_"
-	}
-
-	resultName := fmt.Sprintf("%s%s_%s_block%d_%d", prefix, adjectives[adjIndex], nouns[nounIndex], blockIndex, counter)
-
-	// Save the incremented counter for subsequent calls.
-	uniqueNameCounters.Store(key, counter+1)
 	return resultName
 }
 

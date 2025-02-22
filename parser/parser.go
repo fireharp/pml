@@ -23,6 +23,7 @@ func NewParser(llm LLMClient, sourcesDir, compiledDir, resultsDir string) *Parse
 		cache:          make(map[string]CacheEntry),
 		debug:          os.Getenv("PML_DEBUG") == "1",
 		forceProcess:   false,
+		usedNames:      make(map[string]bool),
 	}
 
 	// Ensure cache directory exists
