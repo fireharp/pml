@@ -33,18 +33,22 @@ func (p *Parser) loadCache() {
 		return
 	}
 
-	// Ensure all entries have initialized maps
+	// Ensure all entries have initialized maps and clean up expired block entries
 	p.cacheMu.Lock()
 	p.cache = make(map[string]CacheEntry)
 	for path, entry := range tempCache {
 		if entry.Blocks == nil {
 			entry.Blocks = make(map[string]BlockCache)
 		}
-		// Clean up expired entries (older than 24 hours)
+		// Clean up expired block entries (older than 24 hours)
 		for blockID, blockCache := range entry.Blocks {
 			if time.Since(blockCache.ModTime) > 24*time.Hour {
 				delete(entry.Blocks, blockID)
 			}
+		}
+		// If no blocks remain and entry is older than 24 hours, skip adding this file entry
+		if len(entry.Blocks) == 0 && time.Since(entry.ModTime) > 24*time.Hour {
+			continue
 		}
 		p.cache[path] = entry
 	}

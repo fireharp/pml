@@ -12,6 +12,9 @@ import (
 
 // ProcessFile processes a single PML file (parse, generate .py, run blocks in parallel)
 func (p *Parser) ProcessFile(ctx context.Context, plmPath string) error {
+    if err := ctx.Err(); err != nil {
+        return err
+    }
 	// Skip .pml/ directories and check if the path is a directory
 	if strings.Contains(plmPath, "/.pml/") || strings.Contains(plmPath, "\\.pml\\") {
 		return nil
@@ -139,6 +142,9 @@ func (p *Parser) ProcessFile(ctx context.Context, plmPath string) error {
 
 // processBlock processes a single block and returns its result
 func (p *Parser) processBlock(ctx context.Context, block Block, index int, plmPath string, pmlDir string) (string, error) {
+    if err := ctx.Err(); err != nil {
+        return "", err
+    }
 	blockChecksum := p.calculateBlockChecksum(block)
 
 	// Check cache for this block using checksum as key
