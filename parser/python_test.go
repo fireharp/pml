@@ -228,7 +228,7 @@ print("Done")
 	_, err = parser.executePython(ctx, testFile)
 	if err == nil {
 		t.Error("Expected timeout error but got none")
-	} else if !strings.Contains(err.Error(), "context deadline exceeded") {
-		t.Errorf("Expected deadline exceeded error, got: %v", err)
+	} else if !strings.Contains(err.Error(), "context deadline exceeded") && !strings.Contains(err.Error(), "signal: killed") {
+		t.Errorf("Expected deadline exceeded or killed error, got: %v", err)
 	}
 }

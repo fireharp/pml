@@ -25,15 +25,20 @@ func (p *Parser) ProcessAllFiles(ctx context.Context) error {
 
 	// Process each file concurrently
 	for _, file := range files {
-		wg.Add(1)
-		go func(f string) {
-			defer wg.Done()
-			if err := p.ProcessFile(ctx, f); err != nil {
-				results <- fmt.Errorf("error processing %s: %w", f, err)
-				return
-			}
-			results <- nil
-		}(file)
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			wg.Add(1)
+			go func(f string) {
+				defer wg.Done()
+				if err := p.ProcessFile(ctx, f); err != nil {
+					results <- fmt.Errorf("error processing %s: %w", f, err)
+					return
+				}
+				results <- nil
+			}(file)
+		}
 	}
 
 	// Wait for all goroutines to finish

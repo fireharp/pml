@@ -220,6 +220,9 @@ What is 2+2?
 
 	foundResult := false
 	for _, f := range files {
+		if f.IsDir() {
+			continue
+		}
 		if f.Name() != "ephemeral.pml" {
 			// This should be a result file
 			resultPath := filepath.Join(tmpDir, f.Name())

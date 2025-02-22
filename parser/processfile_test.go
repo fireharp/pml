@@ -248,6 +248,9 @@ What is π?
 
 	foundUTF8 := false
 	for _, f := range files {
+		if f.IsDir() {
+			continue
+		}
 		if f.Name() != "utf8.pml" && strings.HasSuffix(f.Name(), ".pml") {
 			content, err := os.ReadFile(filepath.Join(tmpDir, f.Name()))
 			if err != nil {
