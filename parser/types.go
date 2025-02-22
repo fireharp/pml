@@ -13,7 +13,6 @@ type LLMClient interface {
 	Summarize(ctx context.Context, text string) (string, error)
 }
 
-// Parser handles PML file parsing and processing
 type Parser struct {
 	llm            LLMClient
 	sourcesDir     string
@@ -27,6 +26,8 @@ type Parser struct {
 	forceProcess   bool
 	resultFiles    sync.Map // Map to track result files being written
 	fileLocks      sync.Map // Map to track file locks
+	usedNamesMu    sync.Mutex
+	usedNames      map[string]bool
 }
 
 // Block represents a block in PML file
