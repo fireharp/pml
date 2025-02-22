@@ -132,7 +132,7 @@ func (p *Parser) ProcessFile(ctx context.Context, plmPath string) error {
 		return fmt.Errorf("failed to create results directory: %w", err)
 	}
 
-	// embed results
+	// ...
 	updatedContent := p.updateContentWithResults(blocks, string(content), results, resultsDir, filepath.Base(plmPath))
 	time.Sleep(50 * time.Millisecond)
 	if err := os.WriteFile(plmPath, []byte(updatedContent), 0644); err != nil {
