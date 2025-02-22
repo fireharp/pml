@@ -32,7 +32,7 @@ func (p *Parser) generateUniqueResultName(sourceFile string, blockIndex int, blo
 		default:
 			prefix = "result_"
 		}
-		resultName = fmt.Sprintf("%s%s_%s_%d", prefix, adjectives[adjIndex], nouns[nounIndex], counter)
+		resultName = fmt.Sprintf("%s%s_%s_block%d_%d", prefix, adjectives[adjIndex], nouns[nounIndex], blockIndex, counter)
 
 		// Check if this name is already taken
 		resultFile := fmt.Sprintf("%s.pml", resultName)

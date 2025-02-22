@@ -15,6 +15,10 @@ func TestLoadCacheWhenFileMissing(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	parser := NewParser(&mockLLM{response: "Test response"}, "sources", "compiled", "results")
+	tmpDir, err := os.MkdirTemp("", "pml-cache-test-LoadCache-*")
+	if err != nil {
+		t.Fatal(err)
+	}
 	parser.cacheFile = filepath.Join(tmpDir, "non_existent_cache.json")
 
 	// Should gracefully handle no file
@@ -31,6 +35,14 @@ func TestSaveAndLoadCache(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
+	tmpDir, err := os.MkdirTemp("", "pml-cache-test-SaveAndLoad-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tmpDir, err := os.MkdirTemp("", "pml-cache-test-Corrupt-*")
+	if err != nil {
+		t.Fatal(err)
+	}
 	cachePath := filepath.Join(tmpDir, "cache.json")
 	parser := NewParser(&mockLLM{response: "Test response"}, "sources", "compiled", "results")
 	parser.cacheFile = cachePath
@@ -86,6 +98,14 @@ func TestCacheExpiry(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	parser := NewParser(&mockLLM{response: "Test response"}, "sources", "compiled", "results")
+	tmpDir, err := os.MkdirTemp("", "pml-cache-test-Expiry-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tmpDir, err := os.MkdirTemp("", "pml-cache-test-BlockResults-*")
+	if err != nil {
+		t.Fatal(err)
+	}
 	parser.cacheFile = filepath.Join(tmpDir, "cache.json")
 
 	// Add an expired entry

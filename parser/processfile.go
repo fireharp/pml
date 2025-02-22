@@ -129,6 +129,7 @@ func (p *Parser) ProcessFile(ctx context.Context, plmPath string) error {
 
 	// embed results
 	updatedContent := p.updateContentWithResults(blocks, string(content), results, pmlDir, filepath.Base(plmPath))
+	time.Sleep(20 * time.Millisecond)
 	if err := os.WriteFile(plmPath, []byte(updatedContent), 0644); err != nil {
 		return fmt.Errorf("failed to write updated PML file: %w", err)
 	}
@@ -290,7 +291,8 @@ Question:
 %s
 
 Answer:
-%s`, questionText, results[i])
+%s
+`, questionText, results[i])
 
 		if err := p.writeResult(block, ephemeralContent, resultFile, localResultsDir, summary); err != nil {
 			// If write fails, just inline the result as fallback
