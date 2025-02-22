@@ -17,19 +17,19 @@ func TestGenerateUniqueResultName(t *testing.T) {
 	parser := NewParser(&mockLLM{response: "Test response"}, "sources", "compiled", "results")
 
 	// Test basic name generation
-	name1 := parser.generateUniqueResultName("mySourceFile.pml", 0, tmpDir)
+	name1 := parser.generateUniqueResultName("mySourceFile.pml", 0, ":ask", tmpDir)
 	if !strings.HasPrefix(name1, "ask_") {
 		t.Errorf("Expected name to start with 'ask_', got %s", name1)
 	}
 
 	// Test collision handling
-	name2 := parser.generateUniqueResultName("mySourceFile.pml", 0, tmpDir)
+	name2 := parser.generateUniqueResultName("mySourceFile.pml", 0, ":ask", tmpDir)
 	if name1 == name2 {
 		t.Errorf("Expected unique names, but got collisions: %s == %s", name1, name2)
 	}
 
 	// Test different block indices
-	name3 := parser.generateUniqueResultName("mySourceFile.pml", 1, tmpDir)
+	name3 := parser.generateUniqueResultName("mySourceFile.pml", 1, ":ask", tmpDir)
 	if strings.HasPrefix(name3, name1) {
 		t.Errorf("Names from different block indices should be different: %s vs %s", name1, name3)
 	}
