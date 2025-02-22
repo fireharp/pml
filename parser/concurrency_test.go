@@ -36,7 +36,7 @@ func TestProcessAllFilesWithMixedContent(t *testing.T) {
 	var mu sync.Mutex
 	mockLLM := &mockLLM{
 		response: "Test response",
-		Delay:    50 * time.Millisecond, // short delay for concurrency test
+		Delay:    50 * time.Millisecond, // 50ms delay so 3 in parallel take ~100ms total
 		callback: func() {
 			mu.Lock()
 			callCount++
@@ -144,7 +144,7 @@ Question %c
 	var mu sync.Mutex
 	mockLLM := &mockLLM{
 		response: "Test response",
-		Delay:    500 * time.Millisecond, // longer delay for cancellation test
+		Delay:    500 * time.Millisecond, // 500ms delay so processing exceeds the 250ms deadline
 		callback: func() {
 			mu.Lock()
 			processedCount++
