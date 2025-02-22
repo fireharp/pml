@@ -16,7 +16,18 @@ func (m *mockLLM) Ask(ctx context.Context, prompt string) (string, error) {
 	if m.callback != nil {
 		m.callback()
 	}
-	time.Sleep(300 * time.Millisecond) // artificial delay to force cancellation
+	totalDelay := 300 * time.Millisecond
+	interval := 10 * time.Millisecond
+	elapsed := time.Duration(0)
+	for elapsed < totalDelay {
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		default:
+			time.Sleep(interval)
+			elapsed += interval
+		}
+	}
 	return m.response, m.err
 }
 

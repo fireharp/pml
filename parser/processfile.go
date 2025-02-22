@@ -50,6 +50,10 @@ func (p *Parser) ProcessFile(ctx context.Context, plmPath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to read plm file: %w", err)
 	}
+	// If the file already contains a result link, assume it’s been processed.
+	if strings.Contains(string(content), ":--(r/") {
+		return nil
+	}
 
 	// Prepare .pml directory
 	pmlDir := filepath.Join(filepath.Dir(plmPath), ".pml")

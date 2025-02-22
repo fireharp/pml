@@ -40,8 +40,8 @@ func TestProcessAllFilesWithMixedContent(t *testing.T) {
 			mu.Lock()
 			callCount++
 			mu.Unlock()
-			// Add a small delay to simulate LLM processing
-			time.Sleep(100 * time.Millisecond)
+			// Simulate a shorter LLM delay for concurrent processing
+			time.Sleep(50 * time.Millisecond)
 		},
 	}
 
