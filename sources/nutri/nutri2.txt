@@ -1,0 +1,80 @@
+This draft has a cleaner integration of Python and PLM, and overall, it follows a more natural flow. Here are the key refinements and observations based on your comments:
+
+1. Emphasis on Python as the Main Execution Context
+	•	👍 Good: The structure makes it clear that Python is the main execution environment.
+	•	Refinement: If Python is the default, we should avoid quoting return types ("GuardrailOutput") in :return_type, since these should already be recognized as Python types.
+	•	Current:
+
+:return_type "GuardrailOutput"
+
+
+	•	Refined:
+
+:return_type GuardrailOutput
+
+
+	•	This eliminates redundancy and enforces proper Python typing.
+
+2. Context Storage (:context user_profile)
+	•	👍 Good: Storing the profile contextually is a great choice.
+	•	Refinement: It’s currently implied that profile is automatically available after being set in :context. To ensure clarity, we could allow referencing it explicitly:
+
+:context user_profile
+store profile
+:--
+
+	•	The keyword store makes it explicit that this context is available for later calls.
+
+3. :ask Blocks Are Well-Structured
+	•	👍 Good: These are clear and logically structured.
+	•	Refinement: As you pointed out, we should assume all LLM calls are async. So:
+	•	Functions like nutrition_flow should explicitly declare async def.
+	•	Every ask result (e.g., guardrail_check, route) should be awaited in Python:
+
+guardrail_check = await ask_guardrail_check(user_message)
+
+
+	•	We should also make it explicit in the PLM syntax:
+
+:ask guardrail_check async
+
+	•	This avoids ambiguity about execution order.
+
+4. Redundant :return_type Specification
+	•	You correctly noted that we shouldn’t repeat :return_type in multiple places if the type is already enforced at execution.
+	•	If RouteDecision is a defined class, then its enforcement should be assumed.
+
+5. Image Handling
+	•	👍 Good: The image_analysis block correctly identifies the need for binary inputs.
+	•	Refinement: We should explicitly support non-text inputs like base64:
+
+:ask image_block
+input:
+  image: base64_image_data
+  user_message: "{user_message}"
+
+	•	This enforces structure instead of embedding everything into a raw LLM prompt.
+
+6. Better Handling of :do Execution
+	•	👍 Good: :do is removed in favor of normal Python execution.
+	•	Refinement: Since everything is expected to be pure Python, :do might not even be needed in this draft, making it cleaner.
+
+7. Making Reflection (:reflect) More Dynamic
+	•	Improvement Suggestion: The draft lacks explicit reflection (:reflect).
+	•	Proposal: We can attach :reflect to function scope:
+
+:reflect throughout nutrition_flow
+  Ensure all responses are cached, logged, and compliant.
+:--
+
+	•	This ensures verification happens in parallel.
+
+Final Refinements to Implement
+
+✅ Remove redundant :return_type quotes.
+✅ Assume all :ask calls are async (and mark them explicitly).
+✅ Improve context storage clarity with store syntax.
+✅ Support structured inputs for image analysis.
+✅ Make :reflect a scoped directive instead of a final static check.
+
+Would you like me to apply these refinements in a new structured draft? 🚀

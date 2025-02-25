@@ -1,0 +1,69 @@
+Your comments are refining the PLM syntax quite effectively. Here are some structured takeaways and suggested refinements based on your observations:
+
+1. :do Directive
+	•	Purpose: It extends :plan by moving beyond LLM calls to actual execution.
+	•	Refinement: Since :do should not contain executable code but rather structured branching or pseudocode, it should be explicitly documented that it’s meant for workflow control, not direct execution.
+	•	Syntax Improvement: Instead of looking like Python, :do should be more declarative, resembling a DSL-like branching system.
+	•	Example:
+
+:do
+  when guardrail_check.accept == false -> raise BlockedInputError(guardrail_check.reply)
+  when route_decision.route == "image_analysis" -> ask image_analysis
+  when route_decision.route == "customer_support" -> ask customer_support
+  otherwise -> ask nutrition_expert
+:--
+
+
+	•	This would avoid confusion with actual Python execution.
+
+2. :ask Input Types
+	•	Your point on supporting non-text inputs (e.g., base64_image_data) is important.
+	•	Refinement: Instead of embedding images as strings inside the prompt (which is inefficient), :ask should support structured input parameters like:
+
+:ask image_analysis
+input:
+  image: base64_image_data
+  user_message: "{user_message}"
+:return_type "ImageAnalysisResult"
+
+
+	•	This keeps inputs structured while ensuring the model can interpret them correctly.
+
+3. :reflect as Background Process
+	•	Key Idea: Reflection isn’t just a directive; it’s a parallel quality control mechanism.
+	•	Possible Refinement: Instead of treating :reflect like a static directive at the end, it should be attached to scopes.
+	•	Example:
+
+:reflect throughout module
+  "Ensure all decisions conform to compliance rules and verify that cached results are correct."
+:--
+
+
+	•	This would mean reflection occurs dynamically during execution, not just as a final step.
+
+4. Identifier Usage (:ask name)
+	•	You like the fact that named identifiers (e.g., route_decision) allow referencing between blocks.
+	•	Should It Be Required?
+	•	Having identifiers as optional but encouraged makes sense.
+	•	If an identifier is present, it should be navigable (i.e., used as a reference in :do blocks).
+	•	Alternative:
+
+:ask [route_decision]
+
+	•	The square brackets could indicate it’s a referencable step, while unnamed :ask blocks are one-off.
+
+5. Removing Redundant :verify
+	•	Since return types are structured data, verification should be implicit when a return type is present.
+	•	New Rule:
+	•	If :return_type is defined, :verify is optional unless additional constraints are needed.
+
+Next Steps?
+
+Would you like to test a refactored version of this syntax based on these refinements? I can generate a cleaned-up draft with:
+✅ Structured :do syntax
+✅ Support for structured inputs in :ask
+✅ Scoping for :reflect
+✅ Implicit :verify
+✅ Optional but encouraged identifiers
+
+Let me know how you’d like to proceed! 🚀
