@@ -4,3 +4,5 @@ repomix-output.*
 uv.lock
 results
 go.sum
+.aider.*
+bin/

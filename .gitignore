@@ -19,3 +19,6 @@ cmd/killresults/killresults
 impl1
 
 .aider.*
+
+# os stuff
+.DS_Store
