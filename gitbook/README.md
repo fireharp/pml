@@ -1,25 +1,46 @@
-# PML
+# PML - Programming with Machine Learning
 
-## Why PML?
+## Introduction
 
-* all llm/near llm calls -> wrap in special `:` directives [https://fireharp.gitbook.io/pml/directives](https://fireharp.gitbook.io/pml/directives)&#x20;
-* make all code bit more interactive / easier to work with
-* don't think much about agentic frameworks at all -> just write yor python code, and think about `:` directives as async func calls&#x20;
-* under the hood PML becomes smarter as technology evolves – migrating to newer APIs and protocols, embracing most resent AI tech out there
+PML (Programming with Machine Learning) is a programming paradigm that seamlessly integrates LLM capabilities into your development workflow through special directives. PML allows you to write code that interacts with LLMs using a simple and intuitive syntax, making AI-assisted programming more accessible and structured.
 
-## Quick start
+- All LLM and related calls are wrapped in special `:` directives
+- Makes code more interactive and easier to work with
+- No need to think about complex agentic frameworks - just write Python code and think about `:` directives as async function calls
+- PML evolves as technology advances - migrating to newer APIs and protocols, embracing the most recent AI technologies
+
+## Quick Start
+
+1. Create a file with a `.pml` extension
+2. Add `:ask` directives for LLM queries
 
 ```
 :ask
-what's the capital of France?
+What's the capital of France?
 :--
 ```
 
-will be rendered as
+When processed, this will be rendered as:
 
 ```
 :ask
-what's the capital of France?
+What's the capital of France?
 :--(happy_panda:"Paris")
 ```
 
+## Core Concepts
+
+PML is built around these fundamental concepts:
+
+1. **Directives**: Special syntax blocks starting with `:` that indicate LLM-related operations
+2. **Interactive Execution**: Directives are processed at runtime and generate results
+3. **Integration with Python**: PML works alongside standard Python code
+4. **State Management**: PML maintains state across multiple queries and operations
+
+## Installation
+
+See the [Getting Started](getting-started.md) guide for installation instructions.
+
+## Project Status
+
+PML is currently in active development. The implementation (impl1) focuses on core functionality with planned enhancements for improved directive support and integration capabilities.
