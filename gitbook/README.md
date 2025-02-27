@@ -8,6 +8,7 @@ PML (Programming with Machine Learning) is a programming paradigm that seamlessl
 - Makes code more interactive and easier to work with
 - No need to think about complex agentic frameworks - just write Python code and think about `:` directives as async function calls
 - PML evolves as technology advances - migrating to newer APIs and protocols, embracing the most recent AI technologies
+- Directives create clear boundaries to control where LLMs can make changes in your code
 
 ## Quick Start
 
@@ -36,6 +37,7 @@ PML is built around these fundamental concepts:
 2. **Interactive Execution**: Directives are processed at runtime and generate results
 3. **Integration with Python**: PML works alongside standard Python code
 4. **State Management**: PML maintains state across multiple queries and operations
+5. **Boundary Control**: Directives create strict encapsulation boundaries, ensuring LLMs only modify code within designated areas
 
 ## Installation
 

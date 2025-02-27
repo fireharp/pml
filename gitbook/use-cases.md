@@ -121,6 +121,88 @@ print(a)  # Correctly prints {'x': 1}
 print(c)  # Prints {'x': 1, 'y': 2}
 ```
 
+### Controlled Code Modification
+
+Use directives to limit the scope of AI changes in a large codebase:
+
+```python
+# In a large project with many interconnected components
+class DatabaseService:
+    def __init__(self, connection_string):
+        self.connection = self._create_connection(connection_string)
+        self.is_connected = False
+
+    def _create_connection(self, connection_string):
+        # Complex connection logic
+        pass
+
+    def execute_query(self, query):
+        # Current implementation has performance issues with large result sets
+        results = []
+        cursor = self.connection.cursor()
+        cursor.execute(query)
+        for row in cursor.fetchall():
+            results.append(row)
+        return results
+
+    # Only optimize this specific method without changing anything else
+    :do optimize_method
+    Optimize the execute_query method to handle large result sets more efficiently.
+    Only modify the execute_query method and preserve all other functionality.
+    :--
+
+    def close(self):
+        if self.connection and self.is_connected:
+            self.connection.close()
+            self.is_connected = False
+
+# After processing:
+class DatabaseService:
+    def __init__(self, connection_string):
+        self.connection = self._create_connection(connection_string)
+        self.is_connected = False
+
+    def _create_connection(self, connection_string):
+        # Complex connection logic
+        pass
+
+    def execute_query(self, query):
+        # Current implementation has performance issues with large result sets
+        results = []
+        cursor = self.connection.cursor()
+        cursor.execute(query)
+        for row in cursor.fetchall():
+            results.append(row)
+        return results
+
+    # Only optimize this specific method without changing anything else
+    :do optimize_method
+    Optimize the execute_query method to handle large result sets more efficiently.
+    Only modify the execute_query method and preserve all other functionality.
+    :--(happy_panda:
+    def execute_query(self, query, batch_size=1000):
+        cursor = self.connection.cursor()
+        cursor.execute(query)
+
+        # Process results in batches to reduce memory usage
+        results = []
+        while True:
+            batch = cursor.fetchmany(batch_size)
+            if not batch:
+                break
+            results.extend(batch)
+
+        return results
+    )
+
+    def close(self):
+        if self.connection and self.is_connected:
+            self.connection.close()
+            self.is_connected = False
+```
+
+This example demonstrates how directives create boundary enforcement, ensuring that LLM changes are limited to just the specified method while preserving the rest of the class structure.
+
 ## Interactive Data Analysis Workflows
 
 ### Dynamic SQL Generation

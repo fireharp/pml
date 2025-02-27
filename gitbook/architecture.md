@@ -9,6 +9,7 @@ The PML implementation consists of several core components:
 1. **Parser System**: Processes `.pml` files and identifies special directive blocks
 2. **LLM Integration**: Manages communication with language learning models
 3. **File Processing**: Handles file I/O and updates
+4. **Boundary Management**: Enforces directive scopes and ensures LLM modifications remain contained
 
 ## Component Details
 
@@ -20,6 +21,7 @@ The parser is responsible for:
 - Identifying special directive blocks (`:ask`, `:do`, etc.)
 - Processing directives based on their type
 - Updating files with processing results
+- Enforcing directive boundaries to prevent unintended modifications
 
 Key files:
 
@@ -37,6 +39,15 @@ The LLM integration component:
 Key files:
 
 - `llm/llm.go`: LLM client implementation
+
+### Boundary Management
+
+The boundary management component:
+
+- Ensures LLM modifications remain within directive blocks
+- Prevents unintended changes to code outside of directive scopes
+- Maintains isolation between AI-driven components and regular code
+- Provides clear delineation of responsibility between human and AI code
 
 ### Command-Line Interface
 

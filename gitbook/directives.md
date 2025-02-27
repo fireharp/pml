@@ -1,6 +1,22 @@
 # Directives in PML
 
-Directives are special syntax blocks in PML that encapsulate operations related to LLMs and similar AI systems. They provide a structured way to interact with AI capabilities within your code.
+Directives are special syntax blocks in PML that encapsulate operations related to LLMs and similar AI systems. They provide a structured way to interact with AI capabilities within your code while maintaining clear boundaries and control.
+
+## The Problem Directives Solve
+
+When working with LLMs and large codebases, one significant challenge is that LLMs tend to make widespread changes across the entire codebase. This can lead to:
+
+1. Unintended side effects
+2. Difficult-to-review changes
+3. Complex debugging when things go wrong
+4. Loss of control over specific parts of your code
+
+Directives solve this by creating well-defined boundaries that:
+
+- Restrict the scope of LLM changes to specific blocks
+- Prevent modifications to other parts of the codebase
+- Make AI interactions explicit and predictable
+- Isolate AI-driven code from regular code
 
 ## Core Directive Types
 
@@ -73,6 +89,16 @@ The planned `:reflect` directive will provide runtime validation and quality con
 :--
 ```
 
+## Directives as Boundaries
+
+A key benefit of directives is creating clear boundaries for LLM interactions. When an LLM sees a directive, it understands:
+
+1. "I should only modify content within this block"
+2. "The rest of the code should remain unchanged"
+3. "My changes should respect the directive's specific purpose"
+
+This boundary-setting is crucial for maintaining control when working with generative AI, as it prevents the "change everything" tendency that LLMs sometimes exhibit.
+
 ## Directive Syntax Rules
 
 1. All directives start with a colon (`:`)
@@ -92,10 +118,12 @@ The planned `:reflect` directive will provide runtime validation and quality con
 
 Directives are particularly useful for:
 
-1. AI-assisted code generation
+1. AI-assisted code generation with controlled scope
 2. Natural language processing within applications
 3. Controlling complex AI workflows
 4. Maintaining state across multiple AI interactions
+5. Preventing unintended LLM modifications to critical code
+6. Creating clear separation between AI and non-AI components
 
 # : directives
 
